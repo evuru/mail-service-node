@@ -1,0 +1,43 @@
+{
+  "name": "mail-service-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e .env.dev -- ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:staging": "dotenv -e .env.staging -- node dist/index.js",
+    "start:prod": "dotenv -e .env.prod -- node dist/index.js",
+    "seed": "dotenv -e .env.dev -- ts-node src/seed.ts",
+    "seed:staging": "dotenv -e .env.staging -- ts-node src/seed.ts",
+    "seed:prod": "dotenv -e .env.prod -- ts-node src/seed.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "handlebars": "^4.7.8",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "juice": "^10.0.0",
+    "mongoose": "^8.0.0",
+    "nodemailer": "^6.9.7",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.10.0",
+    "@types/nodemailer": "^6.4.14",
+    "@types/uuid": "^9.0.7",
+    "dotenv-cli": "^7.3.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.2"
+  }
+}

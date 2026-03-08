@@ -1,0 +1,156 @@
+Email Template Fragments (Handlebars)
+
+These templates are optimized to be injected into the {{{body}}} of the Base Layout.
+
+1. Welcome User (welcome-user)
+
+<h2 style="color: #111827; margin: 0 0 20px 0;">Welcome, {{user_name}}!</h2>
+<p>We're excited to have you join <strong>{{appName}}</strong>. Your account is officially ready to go.</p>
+{{#if login_id}}
+<p style="background: #f9fafb; padding: 10px; border-radius: 4px; border: 1px solid #e5e7eb;">
+  <strong>Your Login ID:</strong> {{login_id}}
+</p>
+{{/if}}
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0 0 0;">
+      <a href="{{action_url}}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Get Started Now</a>
+    </td>
+  </tr>
+</table>
+
+
+2. OTP Verification (otp-verification)
+
+<h2 style="color: #111827; margin: 0 0 20px 0;">Verification Code</h2>
+<p>Hello {{user_name}}, please use the following code to verify your identity:</p>
+<div style="text-align: center; margin: 30px 0;">
+  <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #4f46e5; border: 2px dashed #e5e7eb; padding: 10px 20px; display: inline-block;">{{otp_code}}</span>
+</div>
+<p style="font-size: 14px; color: #6b7280; text-align: center;">This code expires in <strong>{{expiry}}</strong>.</p>
+
+
+3. Password Reset (password-reset)
+
+<h2 style="color: #111827; margin: 0 0 20px 0;">Reset Your Password</h2>
+<p>Hi {{user_name}}, we received a request to reset your password. Click the button below to choose a new one:</p>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0;">
+      <a href="{{reset_url}}" style="background-color: #ef4444; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Reset Password</a>
+    </td>
+  </tr>
+</table>
+<p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">Requested from IP: {{request_ip}}. If you didn't request this, you can safely ignore this email.</p>
+
+
+4. Transaction Alert (transaction-alert)
+
+<h2 style="color: #111827; margin: 0 0 10px 0;">Transaction Alert</h2>
+<p>A new <strong>{{type}}</strong> has been processed on your account.</p>
+<table width="100%" style="border-top: 1px solid #e5e7eb; margin: 20px 0; padding-top: 20px;">
+  <tr>
+    <td style="color: #6b7280; font-size: 14px;">Amount:</td>
+    <td align="right" style="font-weight: bold; color: {{#if (eq type 'Credit')}}#10b981{{else}}#ef4444{{/if}};">{{currency}} {{amount}}</td>
+  </tr>
+  <tr>
+    <td style="color: #6b7280; font-size: 14px;">Reference:</td>
+    <td align="right" style="font-family: monospace;">{{reference}}</td>
+  </tr>
+  <tr>
+    <td style="color: #6b7280; font-size: 14px;">Date:</td>
+    <td align="right">{{timestamp}}</td>
+  </tr>
+</table>
+
+
+5. Security Alert (security-alert)
+
+<h2 style="color: #b91c1c; margin: 0 0 20px 0;">New Login Detected</h2>
+<p>We detected a new login to your account with the following details:</p>
+<ul style="color: #374151; padding-left: 20px;">
+  <li><strong>Device:</strong> {{device}}</li>
+  <li><strong>Location:</strong> {{location}}</li>
+  <li><strong>Browser:</strong> {{browser}}</li>
+</ul>
+<p>If this wasn't you, please secure your account immediately by changing your password.</p>
+
+
+6. Invoice / Receipt (invoice-receipt)
+
+<h2 style="color: #111827; margin: 0 0 10px 0;">Payment Received</h2>
+<p>Thank you for your purchase! Order <strong>#{{order_id}}</strong> is being processed.</p>
+<table width="100%" style="margin: 20px 0;">
+  {{#each items}}
+  <tr>
+    <td style="padding: 5px 0; border-bottom: 1px solid #f3f4f6;">{{this.name}}</td>
+    <td align="right" style="padding: 5px 0; border-bottom: 1px solid #f3f4f6;">{{this.price}}</td>
+  </tr>
+  {{/each}}
+  <tr>
+    <td style="padding-top: 15px; font-weight: bold;">Total</td>
+    <td align="right" style="padding-top: 15px; font-weight: bold; font-size: 18px;">{{total}}</td>
+  </tr>
+</table>
+<div style="text-align: center;">
+  <a href="{{download_url}}" style="color: #4f46e5; font-size: 14px; font-weight: bold;">Download PDF Invoice</a>
+</div>
+
+
+7. Account Status Update (account-status-update)
+
+<h2 style="color: #111827; margin: 0 0 20px 0;">Account Status Notice</h2>
+<p>There has been an update regarding your account access.</p>
+<p style="color: #b91c1c; font-weight: bold;">Reason: {{reason}}</p>
+<p>If you believe this is an error or would like to appeal, please contact our support team.</p>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0;">
+      <a href="{{support_url}}" style="border: 1px solid #4f46e5; color: #4f46e5; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Contact Support</a>
+    </td>
+  </tr>
+</table>
+
+
+8. Event Invitation (event-invite)
+
+<h2 style="color: #111827; margin: 0 0 10px 0;">You're Invited!</h2>
+<p>We would love to see you at our upcoming event: <strong>{{event_name}}</strong>.</p>
+<p><strong>Date:</strong> {{date}}</p>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0;">
+      <a href="{{rsvp_url}}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Confirm Attendance</a>
+    </td>
+  </tr>
+</table>
+
+
+9. Feedback Request (feedback-request)
+
+<h2 style="color: #111827; margin: 0 0 20px 0;">How are we doing?</h2>
+<p>Hi, we'd love to hear your thoughts on <strong>{{product_name}}</strong>. It only takes a minute!</p>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0;">
+      <a href="{{survey_url}}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Take the Survey</a>
+    </td>
+  </tr>
+</table>
+
+
+10. Usage Warning (usage-warning)
+
+<h2 style="color: #92400e; margin: 0 0 20px 0;">Usage Alert</h2>
+<p>You are approaching your limit for <strong>{{metric}}</strong>.</p>
+<div style="background-color: #fffbeb; border: 1px solid #fef3c7; padding: 15px; border-radius: 6px; text-align: center;">
+  <p style="margin: 0; color: #92400e;">Remaining: <span style="font-size: 24px; font-weight: bold;">{{remaining}}</span></p>
+</div>
+<p>To avoid service interruption, we recommend topping up your account.</p>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 20px 0;">
+      <a href="{{topup_url}}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Top Up Credits</a>
+    </td>
+  </tr>
+</table>

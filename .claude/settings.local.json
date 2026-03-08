@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run build)",
+      "Bash(npm install jsonwebtoken bcryptjs)",
+      "Bash(npm install --save-dev @types/jsonwebtoken @types/bcryptjs)",
+      "Bash(npm run seed)",
+      "Bash(npm install lucide-react)",
+      "Bash(npm list lucide-react)"
+    ]
+  }
+}
