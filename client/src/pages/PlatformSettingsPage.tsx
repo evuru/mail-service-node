@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Header } from '../components/Header';
 import { usePlatformStore } from '../store/platformStore';
 import type { LlmProvider } from '../types';
 import { Bot, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -75,7 +74,10 @@ export function PlatformSettingsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-auto">
-      <Header title="Platform Settings" subtitle="Configure platform-wide AI and LLM integration" />
+      <div className="px-6 py-4 border-b border-gray-200 shrink-0">
+        <h1 className="text-base font-semibold text-gray-900">Platform Settings</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Configure platform-wide AI and LLM integration</p>
+      </div>
 
       <div className="flex-1 p-6 max-w-2xl">
         {isLoading ? (

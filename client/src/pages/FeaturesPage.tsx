@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import {
-  Zap, Shield, LayoutTemplate, Code2, Users, Layers,
-  CheckCircle, ArrowRight, Globe, Lock, RefreshCw,
-  Eye, Key, BarChart2, FileCode, Mail,
+  Shield, LayoutTemplate, Code2, Users, Layers,
+  CheckCircle, ArrowRight, Globe, Lock,
+  Key, BarChart2, FileCode, Mail,
 } from 'lucide-react';
 import { PublicPage, PageHero } from '../components/PublicLayout';
 

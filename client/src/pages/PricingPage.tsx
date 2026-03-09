@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Check, X, ArrowRight, Zap, Shield, Server, Cloud,
-  HeadphonesIcon, PhoneCall, Database, BarChart2, Lock,
+  Check, X, ArrowRight, Server, Cloud,
   Download, Star,
 } from 'lucide-react';
 import { PublicPage, PageHero } from '../components/PublicLayout';

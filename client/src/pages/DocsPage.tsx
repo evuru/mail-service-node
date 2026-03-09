@@ -89,7 +89,7 @@ function InlineCode({ children }: { children: React.ReactNode }) {
   return <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[12px] font-mono">{children}</code>;
 }
 
-function CodeBlock({ label, code, lang = 'text' }: { label?: string; code: string; lang?: string }) {
+function CodeBlock({ label, code, lang: _lang = 'text' }: { label?: string; code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
 
   const copy = () => {
