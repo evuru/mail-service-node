@@ -7,7 +7,8 @@
       "Bash(npm install --save-dev @types/jsonwebtoken @types/bcryptjs)",
       "Bash(npm run seed)",
       "Bash(npm install lucide-react)",
-      "Bash(npm list lucide-react)"
+      "Bash(npm list lucide-react)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''scripts:'', json.dumps\\(d.get\\(''scripts'',{}\\), indent=2\\)\\); print\\(''engines:'', d.get\\(''engines'',{}\\)\\)\")"
     ]
   }
 }
