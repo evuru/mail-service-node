@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTemplateStore } from '../store/templateStore';
 import { useSchemaStore } from '../store/schemaStore';
+import { useAppStore } from '../store/appStore';
 import { useDebounce } from '../hooks/useDebounce';
 import { Header } from '../components/Header';
 import { CodeEditor } from '../components/CodeEditor';
@@ -11,6 +12,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { Badge } from '../components/Badge';
 import client from '../api/client';
 import type { PayloadSchema } from '../types';
+import { Sparkles, X, Loader2, Wand2 } from 'lucide-react';
 
 interface FormState {
   name: string;
@@ -37,6 +39,8 @@ export function TemplateEditor() {
   const navigate = useNavigate();
   const { templates, fetchTemplates, updateTemplate, deleteTemplate } = useTemplateStore();
   const { schemas, fetchSchemas } = useSchemaStore();
+  const { selectedApp } = useAppStore();
+  const aiEnabled = selectedApp?.llm_enabled ?? false;
 
   const template = slug ? templates.find((t) => t.slug === slug) : null;
   const layouts = templates.filter((t) => t.is_layout);
@@ -54,6 +58,17 @@ export function TemplateEditor() {
   const [showTestModal, setShowTestModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // AI panel state
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiType, setAiType] = useState<'template' | 'subject'>('template');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+  // Improve mode
+  const [showImprovePanel, setShowImprovePanel] = useState(false);
+  const [improveInstruction, setImproveInstruction] = useState('');
+  const [improving, setImproving] = useState(false);
 
   // Resolved schema for the currently selected schema_id
   const activeSchema: PayloadSchema | null =
@@ -148,12 +163,62 @@ export function TemplateEditor() {
     }
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true); setAiError('');
+    try {
+      const { data } = await client.post<{ html?: string; subject?: string }>('/ai/generate', {
+        prompt: aiPrompt,
+        type: aiType,
+      });
+      if (aiType === 'subject' && data.subject) {
+        setField('subject', data.subject);
+        setShowAiPanel(false);
+      } else if (data.html) {
+        setField('body_html', data.html);
+        setShowAiPanel(false);
+      }
+      setAiPrompt('');
+    } catch (err) {
+      setAiError((err as Error).message);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleImprove = async () => {
+    if (!improveInstruction.trim() || !form.body_html.trim()) return;
+    setImproving(true); setAiError('');
+    try {
+      const { data } = await client.post<{ html: string }>('/ai/improve', {
+        html: form.body_html,
+        instruction: improveInstruction,
+      });
+      setField('body_html', data.html);
+      setShowImprovePanel(false);
+      setImproveInstruction('');
+    } catch (err) {
+      setAiError((err as Error).message);
+    } finally {
+      setImproving(false);
+    }
+  };
+
   const actions = (
     <div className="flex items-center gap-2">
       {saveMsg && (
         <span className={`text-xs font-medium ${saveMsg.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
           {saveMsg}
         </span>
+      )}
+      {aiEnabled && (
+        <button
+          onClick={() => { setShowAiPanel(true); setShowImprovePanel(false); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-violet-700 border border-violet-200 bg-violet-50 rounded-lg hover:bg-violet-100"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Generate
+        </button>
       )}
       {!form.is_layout && (
         <button onClick={() => setShowTestModal(true)} className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -289,7 +354,18 @@ export function TemplateEditor() {
         {/* Editor + Preview */}
         <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
           <div className="min-h-0">
-            <p className="text-xs font-medium text-gray-500 mb-1.5 px-1">HTML / Handlebars</p>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <p className="text-xs font-medium text-gray-500">HTML / Handlebars</p>
+              {aiEnabled && (
+                <button
+                  onClick={() => { setShowImprovePanel((v) => !v); setShowAiPanel(false); }}
+                  className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-800"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  Improve
+                </button>
+              )}
+            </div>
             <div className="h-[calc(100%-24px)]">
               <CodeEditor value={form.body_html} onChange={(v) => setField('body_html', v)} />
             </div>
@@ -322,6 +398,108 @@ export function TemplateEditor() {
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
         />
+      )}
+
+      {/* ── AI Generate Panel ── */}
+      {showAiPanel && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-2xl z-40 flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-600" />
+              <span className="text-sm font-semibold text-gray-900">Generate with AI</span>
+            </div>
+            <button onClick={() => setShowAiPanel(false)} className="text-gray-400 hover:text-gray-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">What to generate</label>
+              <div className="flex gap-2">
+                {(['template', 'subject'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setAiType(t)}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                      aiType === t
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    {t === 'template' ? 'Full template' : 'Subject line'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Describe the email</label>
+              <textarea
+                rows={6}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder={aiType === 'template'
+                  ? 'A welcome email for new users. Include their name, a CTA button to get started, and a footer with an unsubscribe link.'
+                  : 'A subject line for a password reset email. Urgent but not spammy.'}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              />
+            </div>
+            {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+            <p className="text-xs text-gray-400">
+              {aiType === 'template'
+                ? 'The generated HTML will replace the current editor content.'
+                : 'The generated subject line will replace the Subject field.'}
+            </p>
+          </div>
+          <div className="px-5 py-4 border-t border-gray-100">
+            <button
+              onClick={handleAiGenerate}
+              disabled={aiGenerating || !aiPrompt.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+            >
+              {aiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {aiGenerating ? 'Generating…' : 'Generate'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Improve Panel ── */}
+      {showImprovePanel && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-2xl z-40 flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-violet-600" />
+              <span className="text-sm font-semibold text-gray-900">Improve with AI</span>
+            </div>
+            <button onClick={() => setShowImprovePanel(false)} className="text-gray-400 hover:text-gray-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Instruction</label>
+              <textarea
+                rows={4}
+                value={improveInstruction}
+                onChange={(e) => setImproveInstruction(e.target.value)}
+                placeholder="Make it more friendly and concise. Add a prominent CTA button."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              />
+            </div>
+            {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+            <p className="text-xs text-gray-400">The AI will rewrite the full template HTML based on your instruction. The result replaces the current content.</p>
+          </div>
+          <div className="px-5 py-4 border-t border-gray-100">
+            <button
+              onClick={handleImprove}
+              disabled={improving || !improveInstruction.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+            >
+              {improving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+              {improving ? 'Improving…' : 'Apply improvement'}
+            </button>
+          </div>
+        </div>
       )}
     </>
   );

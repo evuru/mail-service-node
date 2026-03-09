@@ -24,29 +24,50 @@ Adjust the `include:` value to match your provider:
 - Zoho: `include:zoho.com`
 
 ### DKIM (DomainKeys Identified Mail)
-A cryptographic signature added to every outgoing email. Generated inside your email provider's panel (not in Node.js).
+A cryptographic signature added to every outgoing email. Generated inside your email provider's panel (not in this app — nothing to configure here).
 
-1. Go to your SMTP provider's dashboard → Email → DKIM Settings.
-2. Copy the TXT record they provide (it will look like `selector._domainkey.yourdomain.com`).
-3. Add it to your DNS.
+1. Go to your SMTP provider's dashboard → Email → DKIM Settings (sometimes called "Email Authentication").
+2. Generate or locate the DKIM key — most providers (Hostinger, GoDaddy, etc.) create it automatically when you set up a custom email address.
+3. Copy the TXT record they provide. It will look like:
+   - **Name/Host:** `mail._domainkey.yourdomain.com` (the selector prefix varies by provider)
+   - **Value:** `v=DKIM1; k=rsa; p=MIGf...` (long public key string)
+4. Go to your **domain registrar's DNS panel** (Cloudflare, Namecheap, GoDaddy, etc.) and add a new **TXT record** with that name and value.
+5. Save and allow DNS to propagate (usually minutes, up to 24 h).
 
-> Note: Hostinger, GoDaddy, and most providers generate DKIM keys automatically when you set up a custom email. Check your email dashboard under "Email Authentication" or "DKIM".
+**Verify it's working:**
+```bash
+dig TXT mail._domainkey.yourdomain.com
+```
+Or use [MXToolbox DKIM Lookup](https://mxtoolbox.com/dkim.aspx) — enter your domain and selector.
+
+> **Nothing to do in this app.** DKIM signing happens at the SMTP provider level. Once the DNS record is live, your provider signs every outgoing email automatically. This service just calls your SMTP server — the provider handles the cryptographic signing.
 
 ### DMARC (Domain-based Message Authentication)
-Tells receiving mail servers what to do if SPF or DKIM fails.
+Tells receiving mail servers what to do if SPF or DKIM fails. Set up in your **domain registrar's DNS panel** — nothing to change in this app or its `.env` files.
 
-**Start with `p=none` (monitor mode) for the first 2–4 weeks:**
+**Add a TXT record:**
 
 | Record | Type | Value |
 |--------|------|-------|
-| `_dmarc.yourdomain.com` | TXT | `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com; adkim=r; aspf=r;` |
+| `_dmarc.yourdomain.com` | TXT | `v=DMARC1; p=none; rua=mailto:you@yourdomain.com; adkim=r; aspf=r;` |
 
-**After reviewing reports, escalate to quarantine:**
-```
-v=DMARC1; p=quarantine; adkim=r; aspf=r;
-```
+Replace `you@yourdomain.com` with a real inbox — Google/Yahoo will send aggregate reports there showing whether SPF and DKIM are passing.
 
-> `rua` is the email address that will receive aggregate DMARC reports. Use a real inbox you check.
+**Policy progression (start permissive, tighten over time):**
+
+| Phase | Policy | When |
+|-------|--------|------|
+| Monitor | `p=none` | First 2–4 weeks — no action taken, reports only |
+| Quarantine | `p=quarantine` | After confirming SPF + DKIM pass in reports |
+| Reject | `p=reject` | Once fully confident — failed emails are dropped |
+
+**Verify it's live:**
+```bash
+dig TXT _dmarc.yourdomain.com
+```
+Or use [MXToolbox DMARC Lookup](https://mxtoolbox.com/dmarc.aspx).
+
+> `rua` is the reporting inbox. Use a real address you check — DMARC reports tell you if any other server is spoofing your domain.
 
 ---
 

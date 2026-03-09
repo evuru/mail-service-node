@@ -13,6 +13,8 @@ export interface IEmailApp extends Document<string> {
   smtp_pass: string;
   smtp_from_name: string;
   api_key: string;           // generated UUID — used for X-API-KEY auth
+  llm_enabled: boolean;      // whether AI features are enabled for this app
+  llm_min_role: 'owner' | 'editor' | 'viewer';  // minimum member role to use AI
   created_at: Date;
   updated_at: Date;
 }
@@ -29,7 +31,9 @@ const EmailAppSchema = new Schema<IEmailApp>(
     smtp_user: { type: String, default: '' },
     smtp_pass: { type: String, default: '' },
     smtp_from_name: { type: String, default: '' },
-    api_key: { type: String, required: true, unique: true, default: uuidv4 },
+    api_key:      { type: String, required: true, unique: true, default: uuidv4 },
+    llm_enabled:  { type: Boolean, default: false },
+    llm_min_role: { type: String, enum: ['owner', 'editor', 'viewer'], default: 'editor' },
   },
   {
     _id: false,

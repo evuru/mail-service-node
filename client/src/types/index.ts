@@ -81,6 +81,18 @@ export interface User {
   updated_at: string;
 }
 
+// ─── LLM / AI ─────────────────────────────────────────────────────────────────
+
+export type LlmProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'openai-compatible';
+
+export interface PlatformLlmConfig {
+  provider: LlmProvider;
+  api_key_set: boolean;   // true if an api_key is stored server-side
+  base_url: string;
+  model: string;
+  enabled: boolean;
+}
+
 // ─── Email Apps ───────────────────────────────────────────────────────────────
 
 export type MemberRole = 'owner' | 'editor' | 'viewer';
@@ -97,6 +109,9 @@ export interface EmailApp {
   smtp_user: string;
   smtp_pass: string;
   smtp_from_name: string;
+  llm_enabled: boolean;
+  llm_min_role: MemberRole;
+  my_role?: MemberRole;
   created_at: string;
   updated_at: string;
 }

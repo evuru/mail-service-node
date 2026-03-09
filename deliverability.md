@@ -10,13 +10,23 @@ SPF (Sender Policy Framework): Tells mail servers which IPs/Services are allowed
 
 Value: v=spf1 include:_spf.mail.hostinger.com ~all (Adjust based on provider).
 
-DKIM (DomainKeys Identified Mail): Adds a cryptographic signature to the header.
+DKIM (DomainKeys Identified Mail): Adds a cryptographic signature to the header. Nothing to configure in this app — signing is done by your SMTP provider.
 
-Value: Generated in your Hostinger/GoDaddy Email Panel.
+Steps:
+1. Go to your provider's dashboard → Email Authentication / DKIM Settings.
+2. Copy the TXT record (name like `mail._domainkey.yourdomain.com`, value starts with `v=DKIM1; k=rsa; p=...`).
+3. Add it as a TXT record in your domain registrar's DNS panel.
+4. Verify with: dig TXT mail._domainkey.yourdomain.com  or  https://mxtoolbox.com/dkim.aspx
 
-DMARC: Tells servers what to do if SPF or DKIM fails.
+Note: The provider signs emails automatically once the DNS record is live. No code changes needed.
 
-Value: v=DMARC1; p=quarantine; adkim=r; aspf=r; (Start with p=none to monitor, then move to p=quarantine).
+DMARC: Tells servers what to do if SPF or DKIM fails. Set in your domain registrar's DNS panel — nothing to change in this app.
+
+Steps:
+1. Add a TXT record: name = _dmarc.yourdomain.com, value = v=DMARC1; p=none; rua=mailto:you@yourdomain.com; adkim=r; aspf=r;
+2. Replace rua email with a real inbox — aggregate reports will be sent there.
+3. After 2–4 weeks, once SPF + DKIM are confirmed passing, escalate: p=none → p=quarantine → p=reject
+4. Verify with: dig TXT _dmarc.yourdomain.com  or  https://mxtoolbox.com/dmarc.aspx
 
 2. Technical Header Hygiene
 

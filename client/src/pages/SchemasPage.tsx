@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Plus, FolderOpen, Check } from 'lucide-react';
+import { Plus, FolderOpen, Check, Sparkles, X, Loader2 } from 'lucide-react';
 import { useSchemaStore } from '../store/schemaStore';
+import { usePlatformStore } from '../store/platformStore';
 import { Header } from '../components/Header';
 import { Badge } from '../components/Badge';
 import { SchemaEditorModal } from '../components/SchemaEditorModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import client from '../api/client';
 import type { PayloadSchema, SchemaField } from '../types';
 
 const TYPE_COLORS: Record<string, string> = {
@@ -29,12 +31,19 @@ function FieldPill({ field }: { field: SchemaField }) {
 
 export function SchemasPage() {
   const { schemas, isLoading, error, fetchSchemas, createSchema, updateSchema, deleteSchema } = useSchemaStore();
+  const { llm, fetchPlatform } = usePlatformStore();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<PayloadSchema | null>(null);
   const [deleting, setDeleting] = useState<PayloadSchema | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => { fetchSchemas(); }, [fetchSchemas]);
+  // AI generate schema
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  useEffect(() => { fetchSchemas(); fetchPlatform(); }, [fetchSchemas, fetchPlatform]);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -47,14 +56,42 @@ export function SchemasPage() {
     }
   };
 
+  const handleAiGenerateSchema = async () => {
+    if (!aiDescription.trim()) return;
+    setAiGenerating(true); setAiError('');
+    try {
+      const { data } = await client.post<Partial<PayloadSchema>>('/ai/schema', { description: aiDescription });
+      await createSchema(data);
+      setShowAiPanel(false);
+      setAiDescription('');
+    } catch (err) {
+      setAiError((err as Error).message);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const aiEnabled = llm?.enabled ?? false;
+
   const actions = (
-    <button
-      onClick={() => setShowCreate(true)}
-      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-    >
-      <Plus className="w-4 h-4" />
-      New Schema
-    </button>
+    <div className="flex items-center gap-2">
+      {aiEnabled && (
+        <button
+          onClick={() => setShowAiPanel(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-violet-700 border border-violet-200 bg-violet-50 rounded-lg hover:bg-violet-100"
+        >
+          <Sparkles className="w-4 h-4" />
+          Generate with AI
+        </button>
+      )}
+      <button
+        onClick={() => setShowCreate(true)}
+        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+      >
+        <Plus className="w-4 h-4" />
+        New Schema
+      </button>
+    </div>
   );
 
   return (
@@ -188,6 +225,55 @@ export function SchemasPage() {
           onConfirm={handleDelete}
           onCancel={() => setDeleting(null)}
         />
+      )}
+
+      {/* ── AI Generate Schema modal ── */}
+      {showAiPanel && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-violet-600" />
+                <span className="text-sm font-semibold text-gray-900">Generate schema with AI</span>
+              </div>
+              <button onClick={() => setShowAiPanel(false)} className="text-gray-400 hover:text-gray-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Describe the email data</label>
+                <textarea
+                  rows={5}
+                  value={aiDescription}
+                  onChange={(e) => setAiDescription(e.target.value)}
+                  placeholder="An order confirmation email. It includes the customer's name, order number, list of items with names and prices, total amount, and a delivery date."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+              {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+              <p className="text-xs text-gray-400">
+                The AI will generate a schema with field names, types, and examples. You can review and edit it after creation.
+              </p>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={handleAiGenerateSchema}
+                disabled={aiGenerating || !aiDescription.trim()}
+                className="flex-1 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
+              >
+                {aiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {aiGenerating ? 'Generating…' : 'Generate schema'}
+              </button>
+              <button
+                onClick={() => setShowAiPanel(false)}
+                className="px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

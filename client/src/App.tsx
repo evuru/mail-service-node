@@ -11,19 +11,29 @@ import { AppSettingsPage } from './pages/AppSettingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { LandingPage } from './pages/LandingPage';
+import { FeaturesPage } from './pages/FeaturesPage';
+import { HowItWorksPage } from './pages/HowItWorksPage';
+import { DocsPage } from './pages/DocsPage';
+import { PricingPage } from './pages/PricingPage';
+import { PlatformSettingsPage } from './pages/PlatformSettingsPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public auth routes */}
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
         {/* Protected app shell */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/templates" replace />} />
+          <Route element={<Layout />}>
             <Route path="templates" element={<Dashboard />} />
             <Route path="templates/new" element={<TemplateEditor />} />
             <Route path="templates/:slug" element={<TemplateEditor />} />
@@ -36,12 +46,13 @@ export default function App() {
             {/* Superadmin only */}
             <Route element={<ProtectedRoute requireSuperadmin />}>
               <Route path="users" element={<UsersPage />} />
+              <Route path="platform-settings" element={<PlatformSettingsPage />} />
             </Route>
           </Route>
         </Route>
 
-        {/* Catch-all → login */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Catch-all → home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Mail, FileText, FolderOpen, BarChart2, Settings, Users } from 'lucide-react';
+import { Mail, FileText, FolderOpen, BarChart2, Settings, Users, Cpu } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { AppSwitcher } from './AppSwitcher';
@@ -84,6 +84,19 @@ export function Sidebar() {
               >
                 <Users className="w-4 h-4 shrink-0" />
                 Users
+              </NavLink>
+              <NavLink
+                to="/platform-settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`
+                }
+              >
+                <Cpu className="w-4 h-4 shrink-0" />
+                Platform Settings
               </NavLink>
             </>
           )}

@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore';
 import client from '../api/client';
 import type { EmailApp, MemberRole, SmtpProvider } from '../types';
 
-type Tab = 'general' | 'smtp' | 'apikey' | 'members' | 'dns';
+type Tab = 'general' | 'smtp' | 'apikey' | 'members' | 'dns' | 'ai';
 
 // Shape returned by GET /apps/:id/members and POST /apps/:id/members
 interface MemberRow {
@@ -49,6 +49,10 @@ export function AppSettingsPage() {
   const [showKey, setShowKey] = useState(false);
   const [regen, setRegen] = useState(false);
 
+  // AI settings
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [llmMinRole, setLlmMinRole] = useState<MemberRole>('editor');
+
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -65,6 +69,8 @@ export function AppSettingsPage() {
       setSmtpUser(a.smtp_user);
       setSmtpPass(a.smtp_pass);
       setSmtpFromName(a.smtp_from_name);
+      setLlmEnabled(a.llm_enabled ?? false);
+      setLlmMinRole(a.llm_min_role ?? 'editor');
       setMembers(membRes.data);
     }).catch(() => setError('Failed to load app')).finally(() => setLoading(false));
   }, [id]);
@@ -123,11 +129,20 @@ export function AppSettingsPage() {
     } catch (err) { setError((err as Error).message); }
   };
 
+  const saveAi = async () => {
+    setSaving(true); setError('');
+    try {
+      const res = await client.put<EmailApp>(`/apps/${id}`, { llm_enabled: llmEnabled, llm_min_role: llmMinRole });
+      setApp(res.data); updateApp(res.data); flash('AI settings saved!');
+    } catch (err) { setError((err as Error).message); } finally { setSaving(false); }
+  };
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'smtp', label: 'SMTP' },
     { id: 'apikey', label: 'API Key' },
     { id: 'members', label: 'Members' },
+    { id: 'ai', label: 'AI' },
     { id: 'dns', label: 'DNS Guide' },
   ];
 
@@ -367,6 +382,57 @@ export function AppSettingsPage() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ── AI ── */}
+          {tab === 'ai' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">AI Features</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Control whether AI features (template generation, improve, schema generation) are available to members of this app.
+                  The platform-wide AI config must also be enabled by a superadmin.
+                </p>
+              </div>
+
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Enable AI for this app</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Allow members to use AI features in templates and schemas</div>
+                </div>
+                <button
+                  onClick={() => setLlmEnabled((v) => !v)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${llmEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${llmEnabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+
+              {/* Min role */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Minimum role to use AI</label>
+                <select
+                  value={llmMinRole}
+                  onChange={(e) => setLlmMinRole(e.target.value as MemberRole)}
+                  disabled={!llmEnabled}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="viewer">Viewer — all members</option>
+                  <option value="editor">Editor and above</option>
+                  <option value="owner">Owner only</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Members below this role will not see AI controls.</p>
+              </div>
+
+              <button
+                onClick={saveAi}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save AI settings'}
+              </button>
             </div>
           )}
 

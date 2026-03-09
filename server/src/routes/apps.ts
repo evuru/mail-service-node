@@ -77,7 +77,7 @@ appsRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Editor or owner role required' });
       return;
     }
-    const { app_name, app_url, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name } = req.body;
+    const { app_name, app_url, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, llm_enabled, llm_min_role } = req.body;
 
     // SMTP changes are owner-only
     const smtpFields = { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name };
@@ -88,8 +88,12 @@ appsRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
     }
 
     const update: Record<string, unknown> = {};
-    if (app_name !== undefined) update.app_name = app_name;
-    if (app_url !== undefined) update.app_url = app_url;
+    if (app_name    !== undefined) update.app_name    = app_name;
+    if (app_url     !== undefined) update.app_url     = app_url;
+    if (llm_enabled !== undefined) update.llm_enabled = llm_enabled;
+    if (llm_min_role !== undefined && ['owner', 'editor', 'viewer'].includes(llm_min_role)) {
+      update.llm_min_role = llm_min_role;
+    }
     if (hasSmtpChange && membership.role === 'owner') {
       if (smtp_host !== undefined) update.smtp_host = smtp_host;
       if (smtp_port !== undefined) update.smtp_port = smtp_port;

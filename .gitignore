@@ -146,4 +146,7 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# inclusion of files that are not tracked by git but are important for the project
 zdata/
+app.md

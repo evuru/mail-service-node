@@ -9,6 +9,8 @@ import { appsRouter } from './apps';
 import { smtpProvidersRouter } from './smtpProviders';
 import { adminRouter } from './admin';
 import { unsubscribeRouter } from './unsubscribe';
+import { platformRouter } from './platform';
+import { aiRouter } from './ai';
 import { apiLimiter } from '../middleware/rateLimit';
 
 export const apiRoutes = Router();
@@ -29,6 +31,12 @@ apiRoutes.use('/apps', appsRouter);
 
 // Admin (JWT + superadmin)
 apiRoutes.use('/admin', adminRouter);
+
+// Platform config (JWT + superadmin — nested under admin)
+apiRoutes.use('/admin/platform', platformRouter);
+
+// AI generation (JWT + API key — role-checked per request)
+apiRoutes.use('/ai', aiRouter);
 
 // App-scoped routes (API key auth via requireApiKey inside each router)
 apiRoutes.use('/send', sendRouter);
