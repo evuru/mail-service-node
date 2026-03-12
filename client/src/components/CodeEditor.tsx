@@ -9,7 +9,7 @@ interface CodeEditorProps {
 
 export function CodeEditor({ value, onChange, language = 'html', readOnly = false }: CodeEditorProps) {
   return (
-    <div className="h-full w-full overflow-hidden rounded-lg border border-gray-200">
+    <div className="h-full w-full overflow-visible rounded-lg border border-gray-200">
       <Editor
         height="100%"
         language={language}

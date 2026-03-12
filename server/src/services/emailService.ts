@@ -75,6 +75,14 @@ export interface SendEmailOptions {
   app: IEmailApp;
 }
 
+export interface SendRawEmailOptions {
+  subject: string;
+  html: string;
+  recipient: string;
+  from_name?: string;
+  app: IEmailApp;
+}
+
 export interface SendResult {
   success: boolean;
   messageId?: string;
@@ -147,6 +155,57 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
 
   await EmailLog.create({
     app_id: app._id, template_id: template._id, template_slug, recipient,
+    status: 'failed', error_message: lastError?.message,
+  });
+  return { success: false, error: lastError?.message };
+};
+
+// ─── sendRawEmail ─────────────────────────────────────────────────────────────
+
+export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendResult> => {
+  const { subject, html, recipient, from_name, app } = options;
+
+  // Check unsubscribe list
+  const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
+  if (unsubscribed) {
+    await EmailLog.create({
+      app_id: app._id, template_id: null, template_slug: '_raw', recipient,
+      status: 'unsubscribed',
+    });
+    return { success: false, error: 'Recipient has unsubscribed' };
+  }
+
+  const inlinedHtml = juice(html);
+  const plainText = htmlToPlainText(html);
+  const fromName = from_name || app.smtp_from_name || app.app_name || 'Mail Service';
+  const from = `"${fromName}" <${app.smtp_user}>`;
+
+  const unsubscribeUrl = buildUnsubscribeUrl(app, recipient);
+  const extraHeaders: Record<string, string> = { 'Precedence': 'bulk', 'X-Mailer': 'Mail Service' };
+  if (unsubscribeUrl) {
+    extraHeaders['List-Unsubscribe'] = `<${unsubscribeUrl}>`;
+    extraHeaders['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+  }
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const info = await getAppTransporter(app).sendMail({
+        from, to: recipient, subject, html: inlinedHtml, text: plainText, headers: extraHeaders,
+      });
+      await EmailLog.create({
+        app_id: app._id, template_id: null, template_slug: '_raw', recipient, status: 'success',
+      });
+      return { success: true, messageId: info.messageId };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  await EmailLog.create({
+    app_id: app._id, template_id: null, template_slug: '_raw', recipient,
     status: 'failed', error_message: lastError?.message,
   });
   return { success: false, error: lastError?.message };

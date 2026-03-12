@@ -13,6 +13,22 @@ body,
   margin: 0;
 }
 
+/* Monaco color picker — escape the editor's overflow clipping */
+.monaco-editor .colorpicker-widget,
+.monaco-editor .colorpicker-color-decoration-hover-data {
+  z-index: 99999 !important;
+}
+.monaco-editor-overflowguard {
+  overflow: visible !important;
+}
+.monaco-editor .overflowingContentWidgets {
+  z-index: 99999 !important;
+}
+/* Re-clip the internal scroll area so the editor still scrolls normally */
+.monaco-editor .monaco-scrollable-element {
+  overflow: clip !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

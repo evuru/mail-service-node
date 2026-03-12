@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   Globe, LayoutTemplate, Zap, ChevronRight, CheckCircle,
-  ArrowRight, Mail, Key, Settings, Send, Eye, FileText,
+  ArrowRight, Mail, Key, Settings, Send, Eye, FileText, Layers,
 } from 'lucide-react';
 import { PublicPage, PageHero } from '../components/PublicLayout';
 
@@ -28,13 +28,13 @@ const steps = [
     icon: Globe,
     color: 'from-indigo-500 to-violet-600',
     glow: 'shadow-indigo-500/20',
-    title: 'Create an app & connect SMTP',
-    summary: 'Register your account, create an Email App, and plug in your SMTP credentials.',
+    title: 'Create apps & connect SMTP',
+    summary: 'Register your account, create one or more Email Apps, and plug in your SMTP credentials.',
     details: [
       'Register — first user becomes superadmin automatically',
-      'Create an Email App with a name (e.g. "Acme Notifications")',
+      'Create an Email App per product or domain (e.g. "Acme Notifications", "Acme Billing")',
       'Set your SMTP credentials — any provider works (Hostinger, SendGrid, Gmail, Mailgun…)',
-      'The app generates a unique API key for you',
+      'Each app gets its own unique API key — your backend\'s identifier for that app',
       'Optionally invite teammates with editor or viewer roles',
     ],
   },
@@ -47,7 +47,7 @@ const steps = [
     summary: 'Use the in-browser Monaco editor to craft HTML email templates with dynamic data.',
     details: [
       'Write HTML email templates using Handlebars syntax — {{name}}, {{#if}}, {{#each}}',
-      'Create a base layout (with a {{body}} slot) for consistent headers and footers',
+      'Create a base layout (with a {{{body}}} slot) for consistent headers and footers',
       'Templates automatically inherit your layout — just write the content',
       'Live preview renders your template with real data before you send',
       'CSS is auto-inlined by Juice so emails look right everywhere',
@@ -59,10 +59,10 @@ const steps = [
     color: 'from-emerald-500 to-teal-600',
     glow: 'shadow-emerald-500/20',
     title: 'Send via REST API',
-    summary: 'One POST request with your template slug and data object. We handle everything else.',
+    summary: 'Template-based or raw custom HTML — one POST, we handle the rest.',
     details: [
-      'POST to /v1/send with X-API-KEY header and JSON body',
-      'We look up the template, render it with your data, and inline all CSS',
+      'POST /v1/send with template_slug + data — renders your template and delivers',
+      'POST /v1/send/raw with subject + html — no template needed, great for dynamic alerts',
       'Unsubscribe check runs before every send — opted-out recipients are skipped and logged',
       'Automatic retry up to 3× with exponential backoff on SMTP failure',
       'Every send (success, failure, or unsubscribed) is logged to your app\'s send log',
@@ -147,6 +147,20 @@ const walkthrough = [
 }`,
   },
   {
+    icon: Layers,
+    label: 'Step 1c',
+    title: 'Multiple apps, one service',
+    desc: 'Create a separate Email App per product or domain. Each gets its own API key, SMTP, templates, and logs.',
+    code: `# Backend env vars — one key per app
+MAIL_KEY_NOTIFICATIONS=d8630c73-6ed9-41e3-a4ed-...
+MAIL_KEY_BILLING=f2a10c84-7be2-52f4-b5fd-...
+MAIL_KEY_SUPPORT=a1b2c3d4-e5f6-7890-abcd-...
+
+# Each key routes to its own SMTP + templates
+POST /v1/send   X-API-KEY: $MAIL_KEY_BILLING
+→ sends from billing@acme.com via Billing SMTP`,
+  },
+  {
     icon: FileText,
     label: 'Step 2',
     title: 'Create a template',
@@ -168,7 +182,7 @@ const walkthrough = [
     label: 'Step 2b',
     title: 'Preview before sending',
     desc: 'Render any template with real data via the preview API or the live preview panel in the editor.',
-    code: `POST /v1/preview/welcome-email   (X-API-KEY: ak_...)
+    code: `POST /v1/preview/welcome-email   (X-API-KEY: ...)
 {
   "name": "Alex",
   "ctaUrl": "https://app.acme.com/onboarding"
@@ -178,10 +192,10 @@ const walkthrough = [
   },
   {
     icon: Send,
-    label: 'Step 3',
-    title: 'Send via API',
+    label: 'Step 3a',
+    title: 'Send via template',
     desc: 'One request. We render, check unsubscribes, inline CSS, and deliver with automatic retries.',
-    code: `POST /v1/send   (X-API-KEY: ak_...)
+    code: `POST /v1/send   (X-API-KEY: ...)
 {
   "template_slug": "welcome-email",
   "recipient": "alex@example.com",
@@ -194,20 +208,39 @@ const walkthrough = [
 → { "success": true, "messageId": "<abc@smtp.acme.com>" }`,
   },
   {
-    icon: Mail,
+    icon: Zap,
     label: 'Step 3b',
+    title: 'Send raw (no template)',
+    desc: 'Need a one-off or fully dynamic email? Skip the template — send subject + HTML directly.',
+    code: `POST /v1/send/raw   (X-API-KEY: ...)
+{
+  "subject": "Your order #1042 has shipped",
+  "html": "<h1>It's on its way!</h1><p>Track: <a href='...'>here</a></p>",
+  "recipient": "alex@example.com",
+  "from_name": "Acme Orders"
+}
+
+→ { "success": true, "messageId": "<def@smtp.acme.com>" }`,
+  },
+  {
+    icon: Mail,
+    label: 'Step 3c',
     title: 'Monitor send logs',
     desc: 'Every send — success, failure, or unsubscribed — is logged with timestamp and error details.',
-    code: `GET /v1/logs?page=1&limit=20   (X-API-KEY: ak_...)
+    code: `GET /v1/logs?page=1&limit=20   (X-API-KEY: ...)
 
 → {
     "logs": [
       { "recipient": "alex@example.com",
         "template_slug": "welcome-email",
         "status": "success",
-        "sent_at": "2026-03-08T10:30:00Z" }
+        "sent_at": "2026-03-10T09:15:00Z" },
+      { "recipient": "alex@example.com",
+        "template_slug": "_raw",
+        "status": "success",
+        "sent_at": "2026-03-10T09:20:00Z" }
     ],
-    "total": 1, "pages": 1
+    "total": 2, "pages": 1
   }`,
   },
 ];

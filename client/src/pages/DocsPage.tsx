@@ -25,7 +25,9 @@ function DocsBody() {
         <Sidebar />
         <main className="min-w-0 space-y-20">
           <AuthSection />
+          <MultiAppSection />
           <SendSection />
+          <SendRawSection />
           <TemplateVarsSection />
           <TemplatesApiSection />
           <LogsApiSection />
@@ -40,7 +42,9 @@ function DocsBody() {
 function Sidebar() {
   const sections = [
     { id: 'authentication', label: 'Authentication' },
-    { id: 'send', label: 'Sending Email' },
+    { id: 'multi-app', label: 'Multi-App Setup' },
+    { id: 'send', label: 'Send via Template' },
+    { id: 'send-raw', label: 'Send Raw (Custom)' },
     { id: 'template-variables', label: 'Template Variables' },
     { id: 'templates-api', label: 'Templates API' },
     { id: 'logs', label: 'Send Logs' },
@@ -183,12 +187,55 @@ function AuthSection() {
   );
 }
 
+function MultiAppSection() {
+  return (
+    <DocSection id="multi-app" title="Multi-App Setup">
+      <Para>
+        Each <InlineCode>Email App</InlineCode> is a fully isolated workspace — its own SMTP, API key, templates, and logs.
+        Create one per product, domain, or sending identity. Your backend stores each key as an environment variable and uses the right one per call.
+      </Para>
+
+      <h3 className="text-base font-bold text-slate-900 mt-6">Creating apps</h3>
+      <Para>
+        From the dashboard, click the <strong>app switcher</strong> at the top of the sidebar → <strong>New App</strong>.
+        Configure SMTP under <strong>Settings → SMTP</strong>. Copy the API key from <strong>Settings → API Key</strong>.
+      </Para>
+
+      <h3 className="text-base font-bold text-slate-900 mt-6">Backend setup</h3>
+      <CodeBlock label="Environment variables" code={`MAIL_SERVICE_URL=https://mail.yourdomain.com/v1
+MAIL_KEY_NOTIFICATIONS=d8630c73-6ed9-41e3-a4ed-30b6f48e10d9
+MAIL_KEY_BILLING=f2a10c84-7be2-52f4-b5fd-41c7g59f21e0`} />
+
+      <CodeBlock label="Node.js — send from the right app" code={`const MAIL = process.env.MAIL_SERVICE_URL;
+
+// Notification email — uses Notifications app SMTP + templates
+await fetch(\`\${MAIL}/send\`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.MAIL_KEY_NOTIFICATIONS },
+  body: JSON.stringify({ template_slug: 'welcome-email', recipient: user.email, data: { name: user.name } }),
+});
+
+// Billing email — uses Billing app SMTP + templates
+await fetch(\`\${MAIL}/send\`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.MAIL_KEY_BILLING },
+  body: JSON.stringify({ template_slug: 'invoice-ready', recipient: user.email, data: { invoiceId: '1042' } }),
+});`} />
+
+      <Para>
+        Templates are scoped per app. Global templates (created by superadmin, <InlineCode>app_id: null</InlineCode>) are visible to all apps.
+        App-specific templates are private to that app.
+      </Para>
+    </DocSection>
+  );
+}
+
 function SendSection() {
   return (
-    <DocSection id="send" title="Sending Email">
+    <DocSection id="send" title="Send via Template">
       <Para>
-        The send endpoint renders a template with your data, checks for unsubscribes, and delivers via your app's SMTP.
-        It retries up to 3 times with exponential backoff on failure.
+        Renders a pre-built Handlebars template with your data, checks for unsubscribes, and delivers via your app's SMTP.
+        Retries up to 3 times with exponential backoff on failure.
       </Para>
 
       <CodeBlock label="POST /v1/send  (X-API-KEY required)" code={`{
@@ -215,7 +262,47 @@ function SendSection() {
 { "success": false, "error": "Recipient has unsubscribed" }
 
 // Template not found
-{ "error": "Template \"welcome-email\" not found" }   // 404`} />
+{ "error": "Template \"welcome-email\" not found" }   // 400`} />
+    </DocSection>
+  );
+}
+
+function SendRawSection() {
+  return (
+    <DocSection id="send-raw" title="Send Raw (Custom Message)">
+      <Para>
+        Send a one-off email without a template — supply the subject and HTML directly. Useful for dynamic alerts,
+        admin notifications, or programmatically generated content. Unsubscribe checks and retries still apply.
+      </Para>
+
+      <CodeBlock label="POST /v1/send/raw  (X-API-KEY required)" code={`{
+  "subject": "Your order #1042 has shipped",
+  "html": "<h1>Great news!</h1><p>Your order is on its way. <a href='https://track.example.com/1042'>Track it here</a>.</p>",
+  "recipient": "user@example.com",
+  "from_name": "Acme Orders"
+}`} />
+
+      <PropTable rows={[
+        { name: 'subject', type: 'string', required: true, desc: 'Email subject line.' },
+        { name: 'html', type: 'string', required: true, desc: 'Full HTML body. CSS is auto-inlined by Juice before sending.' },
+        { name: 'recipient', type: 'string', required: true, desc: 'Recipient email address.' },
+        { name: 'from_name', type: 'string', required: false, desc: 'Sender display name. Falls back to app smtp_from_name or app_name.' },
+      ]} />
+
+      <h3 className="text-base font-bold text-slate-900 mt-6">Response</h3>
+      <CodeBlock code={`// Success
+{ "success": true, "messageId": "<def456@smtp.acme.com>" }
+
+// Unsubscribed
+{ "success": false, "error": "Recipient has unsubscribed" }`} />
+
+      <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm mt-4">
+        <CheckCircle className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+        <span className="text-indigo-800">
+          Raw sends are logged with <InlineCode>template_slug: "_raw"</InlineCode> — visible in your Send Logs dashboard.
+          Use templates where possible for consistent branding and AI assistance.
+        </span>
+      </div>
     </DocSection>
   );
 }

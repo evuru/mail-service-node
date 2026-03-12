@@ -46,12 +46,12 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
   try {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user || !user.is_active) {
-      res.status(401).json({ error: 'Invalid email or password inactive' });
+      res.status(401).json({ error: 'Invalid email or password i' });
       return;
     }
     const ok = await user.comparePassword(password);
     if (!ok) {
-      res.status(401).json({ error: 'Invalid email or password compare' });
+      res.status(401).json({ error: 'Invalid email or password c' });
       return;
     }
     const token = signToken(user._id);
