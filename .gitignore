@@ -150,3 +150,7 @@ vite.config.ts.timestamp-*
 # inclusion of files that are not tracked by git but are important for the project
 zdata/
 app.md
+
+# Claude Code local settings (may contain API keys)
+.claude/settings.local.json
+testpayload.md

@@ -1,0 +1,287 @@
+/**
+ * mail.config.ts
+ *
+ * Defines every Mail Service "app" (each app = one sender email + one API key)
+ * and the templates that belong to each app.
+ *
+ * To add a new sender:
+ *   1. Add an entry to MAIL_APPS
+ *   2. Add MAIL_KEY_<NAME> to .env
+ *   3. Add templates to MAIL_TEMPLATES pointing to that app
+ *
+ * To add a new template:
+ *   1. Add an entry to MAIL_TEMPLATES (pick the app, set the slug)
+ *   2. Add a typed helper in MailService
+ */
+
+// ─── Apps ─────────────────────────────────────────────────────────────────────
+
+export const MAIL_APPS = {
+  /**
+   * notify@yourdomain.com
+   * Used for: automated transactional emails (payments, withdrawals, tournament events, welcome)
+   */
+  notify: {
+    fromEmail: 'notify@yourdomain.com',
+    keyEnv:    'MAIL_KEY_NOTIFY',
+  },
+
+  /**
+   * support@yourdomain.com
+   * Used for: disputes, KYC, ban notifications — anything a user might reply to
+   */
+  support: {
+    fromEmail: 'support@yourdomain.com',
+    keyEnv:    'MAIL_KEY_SUPPORT',
+  },
+} as const;
+
+export type MailAppName = keyof typeof MAIL_APPS;
+
+// ─── Templates ────────────────────────────────────────────────────────────────
+// Each template declares:
+//   - which app sends it (determines the "from" address and API key)
+//   - the slug configured in the Mail Service dashboard
+//   - the payload fields that must be passed in `data`
+
+export const MAIL_TEMPLATES = {
+
+  // ── notify app ─────────────────────────────────────────────────────────────
+  welcome: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-welcome-notification',
+    /**
+     * Payload:
+     *   user_name  — display name shown in greeting
+     *   username   — account username
+     *   email      — user's email address
+     *   preheader  — "Welcome to GameByte — your arena for competitive gaming starts now."
+     */
+  },
+
+  tournamentWon: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-tournament-winner',
+    /**
+     * Payload:
+     *   user_name        — display name
+     *   tournament_name  — name of the tournament
+     *   prize            — prize description (e.g. "₦5,000" or "500 tickets")
+     *   preheader        — "You won <prize> in <tournament_name> — congrats!"
+     */
+  },
+
+  // ── support app ────────────────────────────────────────────────────────────
+  disputeOpened: {
+    app:  'support' as MailAppName,
+    slug: 'gamebyte-dispute-opened',
+    /**
+     * Payload:
+     *   user_name       — display name
+     *   dispute_id      — dispute reference ID
+     *   match_id        — node/match ID
+     *   tournament_name
+     *   preheader       — "We've received your dispute and our team is reviewing it."
+     */
+  },
+
+  disputeResolved: {
+    app:  'support' as MailAppName,
+    slug: 'gamebyte-dispute-resolved',
+    /**
+     * Payload:
+     *   user_name   — display name
+     *   dispute_id
+     *   outcome     — "upheld" | "rejected"
+     *   reason      — moderator's reason
+     *   preheader   — varies by outcome (upheld vs reviewed)
+     */
+  },
+
+  accountBanned: {
+    app:  'support' as MailAppName,
+    slug: 'gamebyte-account-banned',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   reason     — ban reason
+     *   until      — "permanently" or ISO date string
+     *   preheader  — "Important information regarding your GameByte account access."
+     */
+  },
+
+  // ── notify app (transactional) ─────────────────────────────────────────────
+  depositSuccess: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-deposit-success',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   amount     — formatted amount string (e.g. "5000.00")
+     *   tickets    — number of tickets credited
+     *   reference  — transaction reference
+     *   preheader  — "₦<amount> deposited — <tickets> tickets have been added to your account."
+     */
+  },
+
+  withdrawalSuccess: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-withdrawal-success',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   amount     — formatted amount string (e.g. "5000.00")
+     *   reference  — withdrawal reference
+     *   preheader  — "₦<amount> has been sent to your bank account."
+     */
+  },
+
+  withdrawalFailed: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-withdrawal-failed',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   amount     — formatted amount string
+     *   reference  — withdrawal reference
+     *   reason     — failure reason from Lenco
+     *   preheader  — "Your withdrawal of ₦<amount> failed — funds returned to wallet."
+     */
+  },
+
+  withdrawalRequested: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-withdrawal-requested',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   amount     — formatted amount string
+     *   reference  — withdrawal request ID
+     *   preheader  — "Your withdrawal request has been received and is being processed."
+     */
+  },
+
+  tournamentRegistered: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-tournament-registered',
+    /**
+     * Payload:
+     *   user_name        — display name
+     *   tournament_name  — tournament name
+     *   event_id         — event ID
+     *   game_name        — game/event profile name (empty string if unknown)
+     *   preheader        — "You're registered for <tournament_name> — get ready to compete!"
+     */
+  },
+
+  // ── notify app (verification / security) ───────────────────────────────────
+  emailVerification: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-email-verification',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   code       — 6-digit verification code
+     *   expiry     — human-readable expiry (e.g. "24 hours")
+     *   preheader  — "Your verification code is <code> — enter it to confirm your email address."
+     */
+  },
+
+  passwordReset: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-password-reset',
+    /**
+     * Payload:
+     *   user_name   — display name
+     *   reset_link  — full reset URL including token & userId query params
+     *   expiry      — human-readable expiry (e.g. "1 hour")
+     *   preheader   — "Click the link inside to reset your password — it expires in 1 hour."
+     */
+  },
+
+  loginOtp: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-login-otp',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   code       — 6-digit OTP
+     *   expiry     — human-readable expiry (e.g. "10 minutes")
+     *   preheader  — "Your login code is <code> — never share this with anyone."
+     */
+  },
+
+  withdrawalOtp: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-withdrawal-otp',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   code       — 6-digit OTP
+     *   amount     — withdrawal amount (number)
+     *   expiry     — human-readable expiry (e.g. "10 minutes")
+     *   preheader  — "Your withdrawal OTP is <code> — use it to confirm your ₦<amount> withdrawal."
+     */
+  },
+
+  giftReceived: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-gift-received',
+    /**
+     * Payload:
+     *   user_name    — display name
+     *   gift_title   — e.g. "50 Tickets Reward"
+     *   gift_type    — 'tickets' | 'cash_ngn' | 'physical' | 'custom'
+     *   gift_value   — numeric value (ticket count or NGN amount)
+     *   message      — optional admin message (empty string if none)
+     *   preheader    — "You've received a gift: <gift_title>"
+     */
+  },
+
+  // ── support app (KYC) ──────────────────────────────────────────────────────
+  kycVerified: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-kyc-verified',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   kyc_tier   — "TIER_2" or "TIER_3"
+     *   preheader  — "Your identity is verified — withdrawals are now enabled."
+     */
+  },
+
+  kycRejected: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-kyc-rejected',
+    /**
+     * Payload:
+     *   user_name      — display name
+     *   documents_list — comma-separated list of rejected document types
+     *   preheader      — "Action required: re-upload your KYC documents."
+     */
+  },
+
+  kycDocumentsRequired: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-kyc-documents-required',
+    /**
+     * Payload:
+     *   user_name      — display name
+     *   documents_list — comma-separated list of required document types
+     *   preheader      — "Upload your documents to complete identity verification."
+     */
+  },
+
+  kycUnderReview: {
+    app:  'notify' as MailAppName,
+    slug: 'gamebyte-kyc-under-review',
+    /**
+     * Payload:
+     *   user_name  — display name
+     *   preheader  — "Your KYC documents are under review — we'll notify you soon."
+     */
+  },
+
+} as const;
+
+export type MailTemplateName = keyof typeof MAIL_TEMPLATES;

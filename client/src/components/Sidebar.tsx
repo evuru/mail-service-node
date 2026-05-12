@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Mail, FileText, FolderOpen, BarChart2, Settings, Users, Cpu } from 'lucide-react';
+import { Mail, FileText, FolderOpen, BarChart2, Settings, Users, Cpu, Package } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { AppSwitcher } from './AppSwitcher';
@@ -10,6 +10,7 @@ const links: { to: string; label: string; Icon: LucideIcon }[] = [
   { to: '/schemas', label: 'Payload Schemas', Icon: FolderOpen },
   { to: '/logs', label: 'Send Logs', Icon: BarChart2 },
   { to: '/settings', label: 'Settings', Icon: Settings },
+  { to: '/sdk-export', label: 'SDK Export', Icon: Package },
 ];
 
 export function Sidebar() {

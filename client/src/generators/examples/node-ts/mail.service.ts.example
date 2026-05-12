@@ -1,0 +1,302 @@
+import { MAIL_APPS, MAIL_TEMPLATES, MailAppName, MailTemplateName } from '../mail/mail.config';
+
+const SERVICE_URL = (process.env.MAIL_SERVICE_URL || '').replace(/\/$/, '');
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function getKey(appName: MailAppName): string {
+  return process.env[MAIL_APPS[appName].keyEnv] || '';
+}
+
+function headers(appName: MailAppName) {
+  return { 'Content-Type': 'application/json', 'X-API-KEY': getKey(appName) };
+}
+
+function isReady(appName: MailAppName): boolean {
+  return !!(SERVICE_URL && getKey(appName));
+}
+
+async function post(appName: MailAppName, path: string, body: object): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!isReady(appName)) {
+    console.warn(`[Mail] App "${appName}" not configured (missing MAIL_SERVICE_URL or ${MAIL_APPS[appName].keyEnv})`);
+    return { success: false, error: 'Not configured' };
+  }
+  try {
+    const res = await fetch(`${SERVICE_URL}${path}`, {
+      method: 'POST',
+      headers: headers(appName),
+      body: JSON.stringify(body),
+    });
+    const json = await res.json() as { success: boolean; messageId?: string; error?: string };
+    if (!json.success) console.error(`[Mail][${appName}] ${path} failed:`, json.error);
+    return json;
+  } catch (err: any) {
+    console.error(`[Mail][${appName}] Network error on ${path}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
+
+export class MailService {
+
+  /**
+   * Send a template email. The app (and therefore the "from" address + API key)
+   * is determined automatically from mail.config.ts.
+   */
+  static send(
+    templateName: MailTemplateName,
+    recipient: string,
+    data: Record<string, string | number | boolean> = {},
+  ) {
+    const template = MAIL_TEMPLATES[templateName];
+    return post(template.app, '/send', {
+      template_slug: template.slug,
+      recipient,
+      data,
+    });
+  }
+
+  /**
+   * Send a raw HTML email from a specific app.
+   */
+  static sendRaw(
+    appName: MailAppName,
+    params: { subject: string; html: string; recipient: string; fromName?: string },
+  ) {
+    return post(appName, '/send/raw', {
+      subject:   params.subject,
+      html:      params.html,
+      recipient: params.recipient,
+      from_name: params.fromName,
+    });
+  }
+
+  // ─── Typed helpers ──────────────────────────────────────────────────────────
+  // Each helper maps to exactly one template defined in mail.config.ts.
+  // All are fire-and-forget — callers should just call without await,
+  // or chain .catch(() => {}) if they want to be explicit.
+
+  static sendWelcome(user: { email: string; username: string; firstname?: string }) {
+    return this.send('welcome', user.email, {
+      user_name: user.firstname || user.username,
+      username:  user.username,
+      email:     user.email,
+      preheader: 'GameByte is your arena for competitive gaming.',
+    });
+  }
+
+  
+
+
+
+  static sendTournamentRegistered(
+    user: { email: string; username: string },
+    tournament: { name: string; eventId: string; gameName?: string },
+  ) {
+    return this.send('tournamentRegistered', user.email, {
+      user_name:       user.username,
+      tournament_name: tournament.name,
+      event_id:        tournament.eventId,
+      game_name:       tournament.gameName ?? '',
+      preheader:       `You're registered for ${tournament.name} — get ready to compete!`,
+    });
+  }
+
+  static sendTournamentWon(
+    user: { email: string; username: string },
+    tournament: { name: string; prize: string },
+  ) {
+    return this.send('tournamentWon', user.email, {
+      user_name:       user.username,
+      tournament_name: tournament.name,
+      prize:           tournament.prize,
+      preheader:       `You won ${tournament.prize} in ${tournament.name} — congrats!`,
+    });
+  }
+
+  static sendDisputeOpened(
+    user: { email: string; username: string },
+    dispute: { disputeId: string; matchId: string; tournamentName: string },
+  ) {
+    return this.send('disputeOpened', user.email, {
+      user_name:       user.username,
+      dispute_id:      dispute.disputeId,
+      match_id:        dispute.matchId,
+      tournament_name: dispute.tournamentName,
+      preheader:       'We\'ve received your dispute and our team is reviewing it.',
+    });
+  }
+
+  static sendDisputeResolved(
+    user: { email: string; username: string },
+    dispute: { disputeId: string; outcome: 'upheld' | 'rejected'; reason: string },
+  ) {
+    return this.send('disputeResolved', user.email, {
+      user_name:  user.username,
+      dispute_id: dispute.disputeId,
+      outcome:    dispute.outcome,
+      reason:     dispute.reason,
+      preheader:  dispute.outcome === 'upheld'
+        ? 'Your dispute has been upheld — we\'ve taken action on your behalf.'
+        : 'Your dispute has been reviewed — see the outcome inside.',
+    });
+  }
+
+  static sendAccountBanned(
+    user: { email: string; username: string },
+    ban: { reason: string; until?: Date },
+  ) {
+    return this.send('accountBanned', user.email, {
+      user_name: user.username,
+      reason:    ban.reason,
+      until:     ban.until ? ban.until.toISOString() : 'permanently',
+      preheader: 'Important information regarding your GameByte account access.',
+    });
+  }
+
+  static sendEmailVerificationCode(
+    user: { email: string; username: string },
+    code: string,
+  ) {
+    return this.send('emailVerification', user.email, {
+      user_name: user.username,
+      code,
+      expiry:    '24 hours',
+      preheader: `Your verification code is ${code} — enter it to confirm your email address.`,
+    });
+  }
+
+  static sendPasswordResetLink(
+    user: { email: string; username: string },
+    resetLink: string,
+  ) {
+    return this.send('passwordReset', user.email, {
+      user_name:  user.username,
+      reset_link: resetLink,
+      expiry:     '1 hour',
+      preheader:  'Click the link inside to reset your password — it expires in 1 hour.',
+    });
+  }
+
+  static sendLoginOtp(
+    user: { email: string; username: string },
+    code: string,
+  ) {
+    return this.send('loginOtp', user.email, {
+      user_name:  user.username,
+      code,
+      expiry:     '10 minutes',
+      preheader:  `Your login code is ${code} — never share this with anyone.`,
+    });
+  }
+
+  static sendWithdrawalOtp(
+    user: { email: string; username: string },
+    code: string,
+    amount: number,
+  ) {
+    return this.send('withdrawalOtp', user.email, {
+      user_name:  user.username,
+      code,
+      amount,
+      expiry:     '10 minutes',
+      preheader:  `Your withdrawal OTP is ${code} — use it to confirm your ₦${amount.toFixed(2)} withdrawal.`,
+    });
+  }
+
+  static sendGiftReceived(
+    user: { email: string; username: string },
+    gift: { title: string; type: string; value: number; message?: string },
+  ) {
+    return this.send('giftReceived', user.email, {
+      user_name:  user.username,
+      gift_title: gift.title,
+      gift_type:  gift.type,
+      gift_value: gift.value,
+      message:    gift.message ?? '',
+      preheader:  `You've received a gift: ${gift.title}`,
+    });
+  }
+
+  static sendWithdrawalProcessed(
+    user: { email: string; username: string },
+    withdrawal: { amount: number; reference: string },
+  ) {
+    // Template already prepends ₦ before {{amount}}, so pass plain number string
+    const amountPlain = withdrawal.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return this.send('withdrawalSuccess', user.email, {
+      user_name:  user.username,
+      amount:     amountPlain,
+      reference:  withdrawal.reference,
+      preheader:  `₦${amountPlain} has been sent to your bank account.`,
+    });
+  }
+
+
+
+  static sendKycVerified(user: { email: string; username: string }, kycTier: string) {
+    return this.send('kycVerified', user.email, {
+      user_name: user.username,
+      kyc_tier:  kycTier,
+      preheader: 'Your identity is verified — withdrawals are now enabled.',
+    });
+  }
+
+  static sendKycRejected(user: { email: string; username: string }, requiredDocuments: string[]) {
+    return this.send('kycRejected', user.email, {
+      user_name:      user.username,
+      documents_list: requiredDocuments.join(', ') || 'your documents',
+      preheader:      'Action required: re-upload your KYC documents.',
+    });
+  }
+
+  static sendKycDocumentsRequired(user: { email: string; username: string }, requiredDocuments: string[]) {
+    return this.send('kycDocumentsRequired', user.email, {
+      user_name:      user.username,
+      documents_list: requiredDocuments.join(', ') || 'selfie and government ID',
+      preheader:      'Upload your documents to complete identity verification.',
+    });
+  }
+
+  static sendKycUnderReview(user: { email: string; username: string }) {
+    return this.send('kycUnderReview', user.email, {
+      user_name: user.username,
+      preheader: 'Your KYC documents are under review — we\'ll notify you soon.',
+    });
+  }
+
+  /**
+   * Returns the current mail service configuration status.
+   * Safe to expose to admins — keys are masked.
+   */
+  static getStatus() {
+    const serviceUrl = process.env.MAIL_SERVICE_URL || '';
+    return {
+      serviceUrl: serviceUrl || '(not set)',
+      apps: Object.entries(MAIL_APPS).map(([name, cfg]) => {
+        const key = process.env[cfg.keyEnv] || '';
+        return {
+          name,
+          fromEmail: cfg.fromEmail,
+          keyEnv: cfg.keyEnv,
+          keySet: !!key,
+          keyPreview: key ? `${key.substring(0, 8)}…` : '(not set)',
+          ready: !!(serviceUrl && key),
+        };
+      }),
+    };
+  }
+
+  /**
+   * Send a raw test email to verify mail service connectivity.
+   */
+  static sendTestEmail(toEmail: string, adminName: string) {
+    return post('notify', '/send/raw', {
+      subject: 'GameByte Mail Service — Test Email',
+      html: `<p>Hi ${adminName},</p><p>This is a test email from the GameByte mail service diagnostic tool. If you're reading this, the <strong>notify</strong> app is configured correctly.</p><p>Service URL: ${process.env.MAIL_SERVICE_URL || '(not set)'}</p>`,
+      recipient: toEmail,
+      from_name: 'GameByte Diagnostics',
+    });
+  }
+}

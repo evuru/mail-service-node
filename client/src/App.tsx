@@ -17,6 +17,7 @@ import { HowItWorksPage } from './pages/HowItWorksPage';
 import { DocsPage } from './pages/DocsPage';
 import { PricingPage } from './pages/PricingPage';
 import { PlatformSettingsPage } from './pages/PlatformSettingsPage';
+import SDKExportPage from './pages/SDKExportPage';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="apps" element={<AppsPage />} />
             <Route path="apps/:id/settings" element={<AppSettingsPage />} />
+            <Route path="sdk-export" element={<SDKExportPage />} />
 
             {/* Superadmin only */}
             <Route element={<ProtectedRoute requireSuperadmin />}>
