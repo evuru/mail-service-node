@@ -5,12 +5,45 @@ import {
   Download, ChevronRight, ChevronLeft, Package,
   Check, Layers, Settings2, Eye,
 } from 'lucide-react';
+import type { IconType } from 'react-icons';
+import {
+  SiTypescript, SiJavascript, SiPython, SiPhp, SiGo,
+  SiRuby, SiOpenjdk, SiDotnet, SiKotlin, SiSwift,
+  SiGnubash, SiHttpie, SiR, SiJson, SiC, SiCplusplus,
+  SiOcaml, SiClojure,
+} from 'react-icons/si';
+import { TbBrandPowershell, TbBrandApple } from 'react-icons/tb';
 import { useAppStore } from '../store/appStore';
 import { useSchemaStore } from '../store/schemaStore';
 import type { Template } from '../types';
 import { generators, generatorMap } from '../generators';
 import type { ExportApp, ExportTemplate, ExportConfig, GeneratedFile } from '../generators';
 import { toCamel, toEnvKey } from '../generators/utils';
+
+// ─── Language icon map ────────────────────────────────────────────────────────
+
+const LANG_ICONS: Record<string, { Icon: IconType; color: string }> = {
+  typescript:  { Icon: SiTypescript,      color: '#3178C6' },
+  javascript:  { Icon: SiJavascript,      color: '#F7DF1E' },
+  python:      { Icon: SiPython,          color: '#3776AB' },
+  php:         { Icon: SiPhp,             color: '#777BB4' },
+  go:          { Icon: SiGo,              color: '#00ADD8' },
+  ruby:        { Icon: SiRuby,            color: '#CC342D' },
+  java:        { Icon: SiOpenjdk,         color: '#ED8B00' },
+  csharp:      { Icon: SiDotnet,          color: '#512BD4' },
+  kotlin:      { Icon: SiKotlin,          color: '#7F52FF' },
+  swift:       { Icon: SiSwift,           color: '#F05138' },
+  shell:       { Icon: SiGnubash,         color: '#4EAA25' },
+  http:        { Icon: SiHttpie,          color: '#009688' },
+  powershell:  { Icon: TbBrandPowershell, color: '#012456' },
+  r:           { Icon: SiR,              color: '#276DC3' },
+  json:        { Icon: SiJson,            color: '#F5A623' },
+  c:           { Icon: SiC,              color: '#A8B9CC' },
+  cpp:         { Icon: SiCplusplus,       color: '#00599C' },
+  objc:        { Icon: TbBrandApple,      color: '#555555' },
+  ocaml:       { Icon: SiOcaml,           color: '#EC6813' },
+  clojure:     { Icon: SiClojure,         color: '#5881D8' },
+};
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
@@ -283,10 +316,12 @@ export default function SDKExportPage() {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <div
-                  className="w-6 h-6 rounded mx-auto mb-1.5"
-                  style={{ backgroundColor: g.color }}
-                />
+                {(() => {
+                  const lang = LANG_ICONS[g.id];
+                  return lang
+                    ? <lang.Icon className="w-6 h-6 mx-auto mb-1.5" style={{ color: langId === g.id ? lang.color : '#9CA3AF' }} />
+                    : <div className="w-6 h-6 rounded mx-auto mb-1.5" style={{ backgroundColor: g.color }} />;
+                })()}
                 <div className="text-xs font-medium text-gray-800">{g.name}</div>
               </button>
             ))}
@@ -307,10 +342,12 @@ export default function SDKExportPage() {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <div
-                  className="w-6 h-6 rounded mx-auto mb-1.5"
-                  style={{ backgroundColor: g.color }}
-                />
+                {(() => {
+                  const lang = LANG_ICONS[g.id];
+                  return lang
+                    ? <lang.Icon className="w-6 h-6 mx-auto mb-1.5" style={{ color: langId === g.id ? lang.color : '#9CA3AF' }} />
+                    : <div className="w-6 h-6 rounded mx-auto mb-1.5" style={{ backgroundColor: g.color }} />;
+                })()}
                 <div className="text-xs font-medium text-gray-800">{g.name}</div>
               </button>
             ))}
