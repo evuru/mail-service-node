@@ -15,8 +15,11 @@
 7. [Preview a Template](#7-preview-a-template)
 8. [Send Logs](#8-send-logs)
 9. [Code Examples](#9-code-examples)
-10. [Admin UI Guide](#10-admin-ui-guide-for-frontend-developers)
-11. [Error Reference](#11-error-reference)
+10. [Admin UI Guide](#10-admin-ui-guide)
+11. [Organisations & Teams](#11-organisations--teams)
+12. [App Permissions](#12-app-permissions)
+13. [SDK Export](#13-sdk-export)
+14. [Error Reference](#14-error-reference)
 
 ---
 
@@ -33,7 +36,7 @@ Your Backend  ──POST /v1/send──►  Mail Service  ──SMTP──►  R
 
 Base URL (production):
 ```
-https://mail.gamebyte.live/v1
+https://mail.yourapp.com/v1
 ```
 
 ---
@@ -45,6 +48,7 @@ Each **Email App** is an isolated workspace with its own:
 - API key (the app's identifier)
 - Templates (private + access to all global templates)
 - Send logs
+- Member roster with per-member CRUD permissions
 
 To send from **multiple apps** (e.g. `gamebyte` and `acmeshop`), create a separate Email App for each in the dashboard and use the corresponding API key:
 
@@ -68,16 +72,40 @@ MAIL_KEY_ACMESHOP=f2a10c84-7be2-52f4-b5fd-41c7g59f21e0
 
 ## 3. Authentication
 
-All sending endpoints use an `X-API-KEY` header. The key identifies which app is making the request.
+Mail Service uses **two separate auth mechanisms** depending on who is calling.
+
+### API key auth — for your backend
+
+All sending endpoints use an `X-API-KEY` header. The key identifies which Email App is making the request.
 
 ```http
 X-API-KEY: your-app-api-key
 Content-Type: application/json
 ```
 
-Find your API key: **Dashboard → App Settings → API Key tab**.
+Find your API key: **Dashboard → App Settings → API Key tab**.  
+You can regenerate the key at any time — the old key is immediately invalidated.
 
-You can regenerate the key at any time from that tab — the old key is immediately invalidated.
+### JWT auth — for dashboard users
+
+The web UI authenticates users with a JWT (7-day expiry) obtained by logging in:
+
+```http
+POST /v1/auth/login
+Content-Type: application/json
+
+{ "email": "user@example.com", "password": "yourpassword" }
+
+→ { "token": "eyJ...", "user": { "_id": "...", "name": "...", "role": "user", "org_id": "..." } }
+```
+
+The token is sent as `Authorization: Bearer <token>` on all dashboard API calls.
+
+### Registration flow
+
+1. `POST /v1/auth/register` — creates the account
+2. The first registered user becomes `superadmin` and is auto-assigned to the "Mail Service" organisation
+3. All other users are prompted to **create or join an organisation** after registering (see [Organisations & Teams](#11-organisations--teams))
 
 ---
 
@@ -165,28 +193,11 @@ X-API-KEY: <your-key>
 | `recipient` | string | Yes | Recipient email address. |
 | `from_name` | string | No | Sender display name. Falls back to app `smtp_from_name` or `app_name`. |
 
-### Response
-
-```json
-// Success
-{ "success": true, "messageId": "<def456@smtp.gamebyte.live>" }
-
-// Recipient unsubscribed
-{ "success": false, "error": "Recipient has unsubscribed" }
-```
-
-### Notes
-
-- Unsubscribe check still runs — opted-out recipients are skipped.
-- The send is logged as `template_slug: "_raw"` in your send logs.
-- `List-Unsubscribe` header is still added if `app_url` is configured.
-- Use templates instead of raw sends where possible — templates give you live preview, versioning, and AI assistance.
-
 ---
 
 ## 6. Payload Schemas
 
-A **Payload Schema** documents what `data` fields a template expects. It is optional but recommended — it helps your team know exactly what to pass in the `data` object.
+A **Payload Schema** documents what `data` fields a template expects. It is optional but recommended — it serves as a contract between your backend developer and the template designer, and powers typed helper generation in the SDK Export.
 
 View and manage schemas: **Dashboard → Payload Schemas**.
 
@@ -199,8 +210,7 @@ Example schema for `gamebyte-welcome`:
   "fields": [
     { "key": "user_name",  "type": "string",  "required": true,  "example": "Espac",       "description": "Display name of the new user" },
     { "key": "email",      "type": "string",  "required": true,  "example": "user@gb.live", "description": "User's email address" },
-    { "key": "appName",    "type": "string",  "required": false, "example": "Gamebyte",     "description": "Product name shown in the email" },
-    { "key": "year",       "type": "string",  "required": false, "example": "2026",         "description": "Auto-injected — no need to pass" }
+    { "key": "ctaUrl",     "type": "string",  "required": false, "example": "https://...",  "description": "Call-to-action button URL" }
   ]
 }
 ```
@@ -214,7 +224,7 @@ When your backend calls `/v1/send`, pass the documented fields in `data`:
   "data": {
     "user_name": "Espac",
     "email": "espac@gamebyte.live",
-    "appName": "Gamebyte Esports"
+    "ctaUrl": "https://app.gamebyte.live"
   }
 }
 ```
@@ -232,16 +242,10 @@ X-API-KEY: <your-key>
 
 ```json
 // Request body — same data object as /v1/send
-{
-  "user_name": "Espac",
-  "ctaUrl": "https://app.gamebyte.live"
-}
+{ "user_name": "Espac", "ctaUrl": "https://app.gamebyte.live" }
 
 // Response
-{
-  "subject": "Welcome to Gamebyte, Espac!",
-  "html": "<!DOCTYPE html>..."
-}
+{ "subject": "Welcome to Gamebyte, Espac!", "html": "<!DOCTYPE html>..." }
 ```
 
 ---
@@ -264,13 +268,6 @@ X-API-KEY: <your-key>
       "recipient": "espac@gamebyte.live",
       "status": "success",
       "sent_at": "2026-03-10T09:15:00.000Z"
-    },
-    {
-      "_id": "uuid2",
-      "template_slug": "_raw",
-      "recipient": "admin@gamebyte.live",
-      "status": "success",
-      "sent_at": "2026-03-10T09:20:00.000Z"
     }
   ],
   "total": 84,
@@ -292,7 +289,6 @@ Query params: `page`, `limit` (max 100), `status` (success|failed|unsubscribed),
 const MAIL_URL = process.env.MAIL_SERVICE_URL!;       // https://mail.gamebyte.live/v1
 const MAIL_KEY = process.env.MAIL_KEY_GAMEBYTE!;
 
-// Template send
 async function sendWelcomeEmail(user: { name: string; email: string }) {
   const res = await fetch(`${MAIL_URL}/send`, {
     method: 'POST',
@@ -307,16 +303,6 @@ async function sendWelcomeEmail(user: { name: string; email: string }) {
   if (!json.success) throw new Error(json.error ?? 'Mail send failed');
   return json.messageId;
 }
-
-// Raw send
-async function sendAdminAlert(to: string, subject: string, html: string) {
-  const res = await fetch(`${MAIL_URL}/send/raw`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-KEY': MAIL_KEY },
-    body: JSON.stringify({ subject, html, recipient: to, from_name: 'Gamebyte Alerts' }),
-  });
-  return res.json();
-}
 ```
 
 ### Python
@@ -324,12 +310,10 @@ async function sendAdminAlert(to: string, subject: string, html: string) {
 ```python
 import os, requests
 
-MAIL_URL = os.environ['MAIL_SERVICE_URL']   # https://mail.gamebyte.live/v1
+MAIL_URL = os.environ['MAIL_SERVICE_URL']
 MAIL_KEY = os.environ['MAIL_KEY_GAMEBYTE']
-
 HEADERS = {'Content-Type': 'application/json', 'X-API-KEY': MAIL_KEY}
 
-# Template send
 def send_welcome_email(name: str, email: str):
     res = requests.post(f'{MAIL_URL}/send', json={
         'template_slug': 'gamebyte-welcome',
@@ -338,23 +322,11 @@ def send_welcome_email(name: str, email: str):
     }, headers=HEADERS)
     res.raise_for_status()
     return res.json()
-
-# Raw send
-def send_admin_alert(to: str, subject: str, html: str):
-    res = requests.post(f'{MAIL_URL}/send/raw', json={
-        'subject': subject,
-        'html': html,
-        'recipient': to,
-        'from_name': 'Gamebyte Alerts',
-    }, headers=HEADERS)
-    res.raise_for_status()
-    return res.json()
 ```
 
 ### cURL
 
 ```bash
-# Template send
 curl -X POST https://mail.gamebyte.live/v1/send \
   -H "Content-Type: application/json" \
   -H "X-API-KEY: d8630c73-6ed9-41e3-a4ed-30b6f48e10d9" \
@@ -363,38 +335,23 @@ curl -X POST https://mail.gamebyte.live/v1/send \
     "recipient": "user@example.com",
     "data": { "user_name": "Espac", "email": "user@example.com" }
   }'
-
-# Raw send
-curl -X POST https://mail.gamebyte.live/v1/send/raw \
-  -H "Content-Type: application/json" \
-  -H "X-API-KEY: d8630c73-6ed9-41e3-a4ed-30b6f48e10d9" \
-  -d '{
-    "subject": "Server alert: disk usage high",
-    "html": "<p>Disk usage on prod-1 is at <strong>92%</strong>.</p>",
-    "recipient": "admin@gamebyte.live",
-    "from_name": "Gamebyte Ops"
-  }'
 ```
 
 ### PHP
 
 ```php
 <?php
-$mailUrl = getenv('MAIL_SERVICE_URL'); // https://mail.gamebyte.live/v1
+$mailUrl = getenv('MAIL_SERVICE_URL');
 $mailKey = getenv('MAIL_KEY_GAMEBYTE');
 
-function sendTemplateEmail(string $templateSlug, string $recipient, array $data): array {
+function sendTemplateEmail(string $slug, string $recipient, array $data): array {
     global $mailUrl, $mailKey;
     $ch = curl_init("$mailUrl/send");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', "X-API-KEY: $mailKey"],
-        CURLOPT_POSTFIELDS => json_encode([
-            'template_slug' => $templateSlug,
-            'recipient' => $recipient,
-            'data' => $data,
-        ]),
+        CURLOPT_POSTFIELDS => json_encode(['template_slug' => $slug, 'recipient' => $recipient, 'data' => $data]),
     ]);
     $result = json_decode(curl_exec($ch), true);
     curl_close($ch);
@@ -402,17 +359,15 @@ function sendTemplateEmail(string $templateSlug, string $recipient, array $data)
 }
 ```
 
+> **Tip:** For other languages (Go, Ruby, Java, C#, Kotlin, Swift, and more), use the **SDK Export** page in the dashboard to generate ready-to-use client code pre-populated with your actual apps and templates. See [SDK Export](#13-sdk-export).
+
 ---
 
-## 10. Admin UI Guide (for Frontend Developers)
-
-This section is for the **admin dashboard** — the web UI that your team uses to manage templates, schemas, and send logs.
+## 10. Admin UI Guide
 
 ### Access
 
-Navigate to `https://mail.gamebyte.live` and log in with your account credentials.
-
-The first registered user is automatically `superadmin`. Additional users can be invited via **App Settings → Members**.
+Navigate to your Mail Service URL and log in. The first registered user is `superadmin`. All other users register and then create or join an organisation.
 
 ---
 
@@ -421,8 +376,8 @@ The first registered user is automatically `superadmin`. Additional users can be
 An **Email App** is a workspace scoped to one domain / product. You can have multiple.
 
 - **Create:** Click the app switcher (top of sidebar) → **New App**
-- **Switch:** Click the app switcher to change the active app. All templates, logs, and settings shown are for the selected app.
-- **Configure:** Sidebar → **Settings** → App Settings
+- **Switch:** Click the app switcher to change the active app
+- **Configure:** App Switcher → gear icon → App Settings
 
 ---
 
@@ -435,15 +390,15 @@ An **Email App** is a workspace scoped to one domain / product. You can have mul
 | Create template | Click **New Template** |
 | Edit | Click any template name |
 | Set slug | The slug is the identifier used in `/v1/send` → `template_slug` |
-| Use layout | Toggle **Use layout** in template settings — wraps content in `_base_layout` |
-| Preview | Click **Preview** in the editor — renders with live data |
-| Test send | Click **Test Send** — sends a real email to an address you specify |
-| AI Generate | Click **Generate** (if AI is enabled) — describe what you want, AI writes the HTML |
+| Use layout | Toggle **Use layout** — wraps content in `_base_layout` |
+| Preview | Click **Preview** in the editor |
+| Test send | Click **Test Send** — sends a real email to a specified address |
+| AI Generate | Click **Generate** (if AI enabled) — describe what you want, AI writes the HTML |
 | AI Improve | Click **Improve** near the editor — describe a change, AI applies it |
 
 **Template types:**
 - **Regular template** — has subject + HTML body, references a layout
-- **Layout template** (`is_layout: true`) — full HTML document with `{{{body}}}` slot; other templates inject into it
+- **Layout template** (`is_layout: true`) — full HTML document with `{{{body}}}` slot
 - **Global template** (`app_id: null`) — shared across all apps; created by superadmin
 
 ---
@@ -452,8 +407,6 @@ An **Email App** is a workspace scoped to one domain / product. You can have mul
 
 **Sidebar → Payload Schemas**
 
-Schemas document what `data` fields a template expects. They are optional but serve as a contract between your backend developer and the template designer.
-
 | Action | How |
 |---|---|
 | Create | Click **New Schema** or **Generate with AI** |
@@ -461,45 +414,55 @@ Schemas document what `data` fields a template expects. They are optional but se
 | Link to template | Open template editor → Settings panel → select a schema |
 | AI Generate | Click **Generate with AI** → describe the email → AI proposes the schema |
 
-Share the schema with your backend developer so they know exactly what to put in `data`.
-
 ---
 
 ### Send Logs
 
 **Sidebar → Send Logs**
 
-Shows every send attempt for the active app:
-- Filter by `status` (success / failed / unsubscribed)
-- Filter by `template_slug`
-- Click any row for full details including error message on failures
-
-Raw sends appear with `template_slug: _raw`.
+Shows every send attempt for the active app. Filter by status or template slug. Raw sends appear with `template_slug: _raw`.
 
 ---
 
 ### App Settings
 
-**Sidebar → Settings**
+**App Switcher → gear icon**
 
 | Tab | What it does |
 |---|---|
 | General | App name + App URL (required for unsubscribe links) |
-| SMTP | SMTP host, port, credentials, from name. Use the provider picker for presets. |
-| API Key | View, copy, or regenerate the API key. Regenerating immediately invalidates the old key — update your backend env vars. |
-| Members | Invite team members by email, assign roles (owner / editor / viewer), remove members. |
-| AI | Enable/disable AI features for this app, set minimum role required to use AI. |
-| DNS Guide | Auto-generated SPF and DMARC DNS records based on your SMTP domain. |
+| SMTP | Host, port, credentials, from name. Use the provider picker for presets. |
+| API Key | View, copy, or regenerate the API key. Regenerating immediately invalidates the old key. |
+| Members | Invite team members by email, set per-member CRUD permissions, remove members. |
+| AI | Enable/disable AI features for this app; set minimum role required to use AI. |
+| DNS Guide | Auto-generated SPF and DMARC DNS records from your SMTP domain. |
 
 ---
 
-### Member Roles
+### User Profile & Settings
 
-| Role | Permissions |
-|---|---|
-| `owner` | Full access — SMTP, API key, members, AI |
-| `editor` | Create/edit templates and schemas, use AI (if min role ≤ editor) |
-| `viewer` | Read-only — view templates, logs, schemas |
+**Sidebar → Settings**
+
+- Upload a **profile avatar** (hover over the avatar circle to reveal the camera button)
+- Change name, email, or password
+- **Organisation section** (shown when you belong to an org):
+  - Upload an **org logo** (org admins only)
+  - Rename the organisation (org admins only)
+  - View org members, promote/demote org admins, remove members
+  - Invite new users to the org by email
+
+---
+
+### Users (Superadmin only)
+
+**Sidebar → Admin → Users**
+
+Full user management:
+- Search by name or email
+- Filter by role
+- Paginated table showing user, organisation, role, and active status
+- **Edit** opens a modal to change: system role, active/inactive, org admin flag, reset password
+- **Delete** removes the user permanently
 
 ---
 
@@ -510,25 +473,145 @@ Raw sends appear with `template_slug: _raw`.
 Configure the global LLM (AI) integration:
 1. Enable AI platform-wide (master switch)
 2. Select LLM provider: Google Gemini, OpenAI, Anthropic, Ollama, or OpenAI-compatible
-3. Enter the model name and API key
-4. Click **Test connection** to verify before saving
-5. Save — the API key is stored server-side, never exposed to the browser
-
-Once enabled platform-wide, each app's AI access is controlled independently via **App Settings → AI**.
+3. Enter model name and API key (stored server-side, never exposed to the browser)
+4. Click **Test connection** to verify
+5. Save — each app's AI access is then controlled via **App Settings → AI**
 
 ---
 
-## 11. Error Reference
+## 11. Organisations & Teams
+
+Every user belongs to an **Organisation**. Organisations are the top-level grouping for teams — they don't affect API sending, but they govern who can be invited to which apps.
+
+### Structure
+
+```
+Organisation  (name, slug, logo)
+  └── Users (org members, some flagged as org_admin)
+        └── EmailApp membership (per-app CRUD permissions)
+```
+
+### Creating an organisation
+
+- **New users** are prompted to create an organisation on the second step of registration (or skip and create later via Settings)
+- **Existing users without an org** are redirected to `/org-setup` on login
+- The **first registered superadmin** is automatically placed in the "Mail Service" organisation
+
+### Joining an organisation
+
+Org admins invite users by email from **Settings → Organisation → Members → Invite**. The invited user must already have a Mail Service account.
+
+Only one organisation per user. If a user already belongs to another org, the invite is rejected.
+
+### Org admin capabilities
+
+An org admin can:
+- Rename the organisation and update its logo
+- Invite users into the org (by their existing account email)
+- Promote/demote other org members to org admin
+- Remove members from the org
+
+---
+
+## 12. App Permissions
+
+App membership gives a user access to a specific Email App. Permissions are **per-member, per-app** and expressed as four independent flags:
+
+| Flag | What it grants |
+|---|---|
+| `can_read` | View templates, logs, and schemas for this app |
+| `can_write` | Create and edit templates and schemas |
+| `can_delete` | Delete templates |
+| `can_manage` | Change SMTP settings, regenerate API key, manage the member roster |
+
+### Default permissions by role preset
+
+When inviting a member, you choose a **role preset** — this sets the initial flags. After adding, each flag can be toggled individually in **App Settings → Members**.
+
+| Preset | Read | Write | Delete | Manage |
+|--------|:----:|:-----:|:------:|:------:|
+| `owner` | ✓ | ✓ | ✓ | ✓ |
+| `editor` | ✓ | ✓ | ✗ | ✗ |
+| `viewer` | ✓ | ✗ | ✗ | ✗ |
+
+### Notes
+
+- The **owner** of an app (the user who created it) always has all four permissions and cannot be demoted via the UI.
+- Permissions apply to **dashboard (UI) users only**. External API callers using the `X-API-KEY` bypass all role checks — the key identifies the app, not a user.
+- AI feature access is also controlled per-app: **App Settings → AI → Minimum role to use AI**.
+
+---
+
+## 13. SDK Export
+
+**Sidebar → SDK Export**
+
+The SDK Export wizard generates ready-to-use mail client code in 20 languages, pre-populated with your actual apps, templates, API keys, and typed method signatures.
+
+### How it works
+
+1. **Select a language** — choose from Full SDK generators (TypeScript, JavaScript, Python, PHP, Go, Ruby, Java, C#, Kotlin, Swift) or Request Examples (Shell, HTTP, PowerShell, R, JSON config, C, C++, Objective-C, OCaml, Clojure)
+2. **Select apps & templates** — tick which apps and which templates to include
+3. **Configure** — set the service URL and optional custom env var names
+4. **Download** — click Download ZIP to get the generated files
+
+### What you get
+
+**Full SDK generators** produce three files:
+- `mail.config.<ext>` — app and template map (slugs, API keys, env var names)
+- `mail.service.<ext>` — a service class with per-template helper methods (typed when a Payload Schema is linked)
+- `.env` — ready-to-fill environment file with your actual API key values
+
+**Request example generators** produce:
+- A file with one ready-to-run request per template
+- `.env` — same format as above
+
+### Typed helpers
+
+When a template has a Payload Schema linked, the generated service method includes typed parameters. For example, with a schema that has `user_name (string, required)` and `email (string, optional)`:
+
+```typescript
+// TypeScript output
+sendGambyteWelcome(recipient: string, data: { user_name: string; email?: string }): Promise<SendResult>
+
+// Python output
+def send_gamebyte_welcome(self, recipient: str, user_name: str, email: str = None) -> dict:
+
+// Go output
+func (s *MailService) SendGambyteWelcome(recipient string, data GambyteWelcomeData) (SendResult, error)
+```
+
+Without a schema, the `data` parameter falls back to a generic map/dict/record type.
+
+### Future: npm package
+
+The generator logic (`client/src/generators/`) has zero React or browser dependencies — it's pure TypeScript, string-in/string-out. It is structured to be extracted as `@mail-service/sdk-gen`. See `client/src/generators/README.md` for the extraction guide.
+
+---
+
+## 14. Error Reference
 
 | HTTP | `error` value | Cause |
 |---|---|---|
 | 400 | `template_slug (string) is required` | Missing or wrong type |
 | 400 | `recipient (string) is required` | Missing or wrong type |
 | 400 | `Template "x" not found` | No template with that slug for this app |
+| 400 | `name, email, and password are required` | Missing register fields |
+| 400 | `Password must be at least 8 characters` | Password too short |
+| 400 | `name is required` | Missing org name |
 | 401 | `Missing X-API-KEY header` | No API key sent |
 | 401 | `Invalid API key` | Key doesn't match any app |
+| 401 | `Invalid email or password` | Login failed |
+| 401 | `Invalid or expired token` | JWT missing or expired |
+| 403 | `Write permission required` | Member lacks `can_write` |
+| 403 | `Manage permission required` | Member lacks `can_manage` |
+| 403 | `Only org admins can invite members` | Not an org admin |
+| 404 | `App not found` | App doesn't exist or user isn't a member |
+| 409 | `A user with this email already exists` | Duplicate registration |
+| 409 | `You already belong to an organisation` | User tried to create a second org |
+| 409 | `User is already a member` | Duplicate app member invite |
+| 413 | `Image too large — keep it under 300 KB` | Profile/logo image too big |
 | 429 | _(rate limit response)_ | Too many requests — back off and retry |
-| 500 | `SMTP connection failed` / SMTP error | SMTP credentials wrong or provider down |
-| 500 | `Recipient has unsubscribed` | Silently skipped (not a real error) |
+| 500 | `SMTP connection failed` | SMTP credentials wrong or provider down |
 
 All errors return JSON: `{ "error": "message" }` or `{ "success": false, "error": "message" }`.

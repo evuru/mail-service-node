@@ -1,6 +1,122 @@
-# Multi-Tenant Upgrade — Change Log
+# Change Log
 
-## What Changed
+---
+
+## v3 — Organisations, CRUD Permissions & SDK Export
+
+### Organisations
+
+Every user now belongs to an **Organisation**. Orgs group teams together and provide a shared identity (name + logo).
+
+**New model: `server/src/models/Organization.ts`**
+- Fields: `name`, `slug`, `logo_base64`, `created_by`, timestamps
+- `toSlug()` helper converts org name to a URL-safe slug
+
+**User model additions (`server/src/models/User.ts`):**
+- `org_id` — reference to the user's Organisation
+- `is_org_admin` — whether the user can manage the org's members
+- `profile_image_base64` — user avatar stored as base64 (max ~300 KB enforced server-side)
+
+**New routes: `server/src/routes/orgs.ts`**
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/v1/orgs` | Create a new organisation (assigns caller as org admin) |
+| `GET` | `/v1/orgs/me` | Get the caller's organisation |
+| `PUT` | `/v1/orgs/me` | Update org name / logo (org admin only) |
+| `GET` | `/v1/orgs/me/members` | List org members |
+| `POST` | `/v1/orgs/me/members` | Invite user to org by email (org admin only) |
+| `PUT` | `/v1/orgs/me/members/:userId` | Promote/demote org member |
+| `DELETE` | `/v1/orgs/me/members/:userId` | Remove member from org |
+| `POST` | `/v1/orgs/join` | Join an org by `org_id` |
+
+**Registration flow changes (`server/src/routes/auth.ts`):**
+- First registered user → `superadmin` → auto-creates "Mail Service" org and is set as org admin
+- `PUT /auth/me` now accepts `profile_image_base64` (450,000 char limit enforced)
+- `userPayload()` helper returns org fields: `org_id`, `is_org_admin`, `profile_image_base64`
+
+**Admin additions (`server/src/routes/admin.ts`):**
+- `GET /admin/users` now supports `search` (regex on name/email), `org_id`, `role` filters, pagination (`page`/`limit`), and returns inline org name/slug on each user
+- `GET /admin/orgs` — lists all orgs with member counts
+- `PUT /admin/users/:id` now accepts `org_id` and `is_org_admin`
+
+---
+
+### CRUD Permissions (AppMember v2)
+
+The `owner|editor|viewer` role system has been extended with **four explicit permission flags** per app member. Roles remain for display and are used as presets when inviting, but all access checks now use the flags.
+
+**Updated model: `server/src/models/AppMember.ts`**
+
+New fields on every membership document:
+```
+can_read    boolean  — view templates, logs, schemas
+can_write   boolean  — create and edit templates
+can_delete  boolean  — delete templates
+can_manage  boolean  — SMTP, API key, member management
+```
+
+Helper functions (backwards-compatible — falls back to role derivation if flags not set):
+```typescript
+canRead(m)    canWrite(m)    canDelete(m)    canManage(m)
+permissionsFromRole(role)  // derives all four flags from a role string
+```
+
+All `apps.ts` route guards updated to use these helpers. All responses include a `my_permissions` object alongside `my_role`.
+
+**Existing data** is fully compatible — old `AppMember` documents without explicit flags fall back to role-derived values.
+
+---
+
+### SDK Export
+
+A new **4-step code generation wizard** at `/sdk-export` that produces downloadable mail client code in 20 languages.
+
+**New files: `client/src/generators/`**
+
+| File | Purpose |
+|---|---|
+| `types.ts` | `ExportConfig`, `ExportApp`, `ExportTemplate`, `GeneratedFile`, `LanguageGenerator` interfaces |
+| `utils.ts` | String converters (`toCamel`, `toPascal`, `toEnvKey`, `toSnake`, `toKebab`), `generateEnv()` |
+| `index.ts` | Generator registry — `generators[]` array + `generatorMap` keyed by id |
+| `typescript.ts` … `clojure.ts` | 20 language generator implementations |
+| `README.md` | Architecture, types, adding a new language, npm package extraction guide |
+
+**Languages supported:**
+
+| Category | Languages |
+|---|---|
+| Full SDK (config + service + .env) | TypeScript, JavaScript, Python, PHP, Go, Ruby, Java, C#, Kotlin, Swift |
+| Request examples (.env + requests) | Shell, HTTP, PowerShell, R, JSON config, C, C++, Objective-C, OCaml, Clojure |
+
+**Key design:**
+- `generate(config)` is a pure synchronous function — no async, no I/O, no React dependency
+- Typed method signatures when a Payload Schema is linked to the template
+- ZIP download via `jszip` (client-side, no new backend endpoint needed)
+- Language icons via `react-icons/si` and `react-icons/tb`
+
+**New dependency:** `jszip`, `react-icons`
+
+---
+
+### Frontend changes (v3)
+
+| File | Change |
+|---|---|
+| `client/src/types/index.ts` | `User` + org fields; new `Organization` type; `AppMember` + CRUD flags; `AppPermissions` type; `EmailApp.my_permissions` |
+| `client/src/store/orgStore.ts` | New — org CRUD + member management |
+| `client/src/pages/RegisterPage.tsx` | 2-step: account creation → org setup (auto-skipped for superadmin) |
+| `client/src/pages/OrgSetupPage.tsx` | New — standalone page for users without an org |
+| `client/src/components/ProtectedRoute.tsx` | Redirects to `/org-setup` when user has no `org_id` (non-superadmin) |
+| `client/src/pages/UsersPage.tsx` | Full rebuild: search, role filter, pagination, org info, inline edit modal |
+| `client/src/pages/SettingsPage.tsx` | Profile avatar upload; org section (logo, name, member list, invite form) |
+| `client/src/pages/AppSettingsPage.tsx` | Members tab: 4 CRUD checkboxes per member; toggled with immediate API saves |
+| `client/src/components/Sidebar.tsx` | Footer shows org logo + name + user avatar |
+| `client/src/App.tsx` | `/org-setup` route added |
+
+---
+
+## v2 — Multi-Tenant Upgrade
 
 Single-tenant flat config → full multi-tenant SaaS with Users, Email Apps, and per-app SMTP.
 
@@ -136,17 +252,16 @@ The provider picker is available in App Settings → SMTP. Selecting a provider 
 
 ---
 
-## Permissions
+## Permissions (v2 — role presets only)
+
+> **Superseded by v3 CRUD flags.** The table below reflects the original role-based model. In v3 these defaults are preserved as presets when inviting a member, but individual flags can be toggled per-member after the fact.
 
 | Action | owner | editor | viewer |
 |--------|-------|--------|--------|
-| View templates/logs | ✓ | ✓ | ✓ |
-| Create/edit/delete templates | ✓ | ✓ | ✗ |
-| Send test emails | ✓ | ✓ | ✗ |
-| View app settings | ✓ | ✓ | ✗ |
-| Edit SMTP / name | ✓ | ✗ | ✗ |
-| Manage members | ✓ | ✗ | ✗ |
-| Delete app | ✓ | ✗ | ✗ |
-| Regenerate API key | ✓ | ✗ | ✗ |
+| View templates/logs (`can_read`) | ✓ | ✓ | ✓ |
+| Create/edit templates (`can_write`) | ✓ | ✓ | ✗ |
+| Delete templates (`can_delete`) | ✓ | ✗ | ✗ |
+| Edit SMTP / manage members (`can_manage`) | ✓ | ✗ | ✗ |
+| Regenerate API key (`can_manage`) | ✓ | ✗ | ✗ |
 
 > Note: External API calls using the app's API key bypass role checks — roles apply to UI users only.
