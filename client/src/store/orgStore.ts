@@ -1,0 +1,65 @@
+import { create } from 'zustand';
+import client from '../api/client';
+import type { Organization, User } from '../types';
+
+interface OrgState {
+  org: Organization | null;
+  members: User[];
+  loading: boolean;
+  error: string | null;
+
+  fetchOrg: () => Promise<void>;
+  updateOrg: (data: { name?: string; logo_base64?: string }) => Promise<Organization>;
+  fetchMembers: () => Promise<void>;
+  inviteMember: (email: string, is_org_admin?: boolean) => Promise<User>;
+  updateMember: (userId: string, is_org_admin: boolean) => Promise<User>;
+  removeMember: (userId: string) => Promise<void>;
+  clearOrg: () => void;
+}
+
+export const useOrgStore = create<OrgState>((set) => ({
+  org: null,
+  members: [],
+  loading: false,
+  error: null,
+
+  fetchOrg: async () => {
+    set({ loading: true, error: null });
+    try {
+      const { data } = await client.get<Organization>('/orgs/me');
+      set({ org: data, loading: false });
+    } catch (err) {
+      set({ error: (err as Error).message, loading: false });
+    }
+  },
+
+  updateOrg: async (data) => {
+    const { data: updated } = await client.put<Organization>('/orgs/me', data);
+    set({ org: updated });
+    return updated;
+  },
+
+  fetchMembers: async () => {
+    const { data } = await client.get<User[]>('/orgs/me/members');
+    set({ members: data });
+  },
+
+  inviteMember: async (email, is_org_admin = false) => {
+    const { data } = await client.post<User>('/orgs/me/members', { email, is_org_admin });
+    set((s) => ({ members: [...s.members, data] }));
+    return data;
+  },
+
+  updateMember: async (userId, is_org_admin) => {
+    const { data } = await client.put<User>(`/orgs/me/members/${userId}`, { is_org_admin });
+    set((s) => ({ members: s.members.map((m) => (m._id === userId ? { ...m, is_org_admin } : m)) }));
+    return data;
+  },
+
+  removeMember: async (userId) => {
+    await client.delete(`/orgs/me/members/${userId}`);
+    set((s) => ({ members: s.members.filter((m) => m._id !== userId) }));
+  },
+
+  clearOrg: () => set({ org: null, members: [], error: null }),
+}));

@@ -11,6 +11,9 @@ export interface IUser extends Document<string> {
   password_hash: string;
   role: UserRole;
   is_active: boolean;
+  org_id?: string;
+  is_org_admin?: boolean;
+  profile_image_base64?: string;
   created_at: Date;
   updated_at: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -18,12 +21,15 @@ export interface IUser extends Document<string> {
 
 const UserSchema = new Schema<IUser>(
   {
-    _id: { type: String, default: uuidv4 },
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password_hash: { type: String, required: true },
-    role: { type: String, enum: ['superadmin', 'user'], default: 'user' },
-    is_active: { type: Boolean, default: true },
+    _id:                   { type: String, default: uuidv4 },
+    name:                  { type: String, required: true, trim: true },
+    email:                 { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password_hash:         { type: String, required: true },
+    role:                  { type: String, enum: ['superadmin', 'user'], default: 'user' },
+    is_active:             { type: Boolean, default: true },
+    org_id:                { type: String, ref: 'Organization', default: null },
+    is_org_admin:          { type: Boolean, default: false },
+    profile_image_base64:  { type: String, default: '' },
   },
   {
     _id: false,

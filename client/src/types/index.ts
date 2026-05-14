@@ -77,6 +77,21 @@ export interface User {
   name?: string;
   role: UserRole;
   is_active: boolean;
+  org_id?: string | null;
+  is_org_admin?: boolean;
+  profile_image_base64?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Organisations ────────────────────────────────────────────────────────────
+
+export interface Organization {
+  _id: string;
+  name: string;
+  slug: string;
+  logo_base64?: string;
+  created_by: string;
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +112,13 @@ export interface PlatformLlmConfig {
 
 export type MemberRole = 'owner' | 'editor' | 'viewer';
 
+export interface AppPermissions {
+  can_read: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  can_manage: boolean;
+}
+
 export interface EmailApp {
   _id: string;
   app_name: string;
@@ -112,6 +134,7 @@ export interface EmailApp {
   llm_enabled: boolean;
   llm_min_role: MemberRole;
   my_role?: MemberRole;
+  my_permissions?: AppPermissions | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,9 +142,14 @@ export interface EmailApp {
 export interface AppMember {
   _id: string;
   app_id: string;
-  user_id: string | User;
+  user_id: string;
   role: MemberRole;
+  can_read: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  can_manage: boolean;
   created_at: string;
+  user?: { _id: string; name: string; email: string } | null;
 }
 
 // ─── SMTP Provider Presets ────────────────────────────────────────────────────

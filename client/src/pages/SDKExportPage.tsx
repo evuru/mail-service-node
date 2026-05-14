@@ -366,83 +366,129 @@ export default function SDKExportPage() {
 
       {/* ── Step 1: Select ───────────────────────────────────────────────── */}
       {step === 1 && (
-        <div>
+        <div className="flex flex-col" style={{ minHeight: 0 }}>
           {loadingTemplates ? (
-            <div className="text-gray-500 text-sm py-10 text-center">Loading templates…</div>
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+              <span className="text-sm">Loading templates…</span>
+            </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray-600">
-                  {selectedAppCount} app{selectedAppCount !== 1 ? 's' : ''} ·{' '}
-                  {selectedTemplateCount} template{selectedTemplateCount !== 1 ? 's' : ''} selected
-                </p>
+              {/* Toolbar */}
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedAppCount} app{selectedAppCount !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-sm text-gray-500">
+                    {selectedTemplateCount} template{selectedTemplateCount !== 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => apps.forEach((a) => { if (!state.appSelections[a._id]?.selected) toggleApp(a._id); (allTemplates[a._id] ?? []).forEach((t) => { if (!state.appSelections[a._id]?.templates[t.slug]) toggleTemplate(a._id, t.slug); }); })}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={() => apps.forEach((a) => { if (state.appSelections[a._id]?.selected) toggleApp(a._id); })}
+                    className="text-xs text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Scrollable list */}
+              <div className="overflow-y-auto space-y-3 pr-1" style={{ maxHeight: 'calc(100vh - 380px)', minHeight: '200px' }}>
                 {apps.map((app) => {
                   const sel = state.appSelections[app._id];
                   const appTemplates = allTemplates[app._id] ?? [];
-                  const allSelected = appTemplates.every((t) => sel?.templates[t.slug]);
-                  const noneSelected = appTemplates.every((t) => !sel?.templates[t.slug]);
+                  const selectedCount = appTemplates.filter((t) => sel?.templates[t.slug]).length;
+                  const allSelected = appTemplates.length > 0 && selectedCount === appTemplates.length;
+                  const noneSelected = selectedCount === 0;
 
                   return (
-                    <div key={app._id} className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div
+                      key={app._id}
+                      className={`border rounded-xl overflow-hidden transition-colors ${
+                        sel?.selected ? 'border-blue-200 bg-white' : 'border-gray-200 bg-gray-50 opacity-60'
+                      }`}
+                    >
                       {/* App header */}
-                      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${
+                          sel?.selected ? 'bg-blue-50/50' : 'bg-gray-100/60'
+                        }`}
+                        onClick={() => toggleApp(app._id)}
+                      >
                         <input
                           type="checkbox"
                           checked={sel?.selected ?? false}
                           onChange={() => toggleApp(app._id)}
-                          className="rounded border-gray-300 text-blue-600"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-gray-300 text-blue-600 pointer-events-none"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-gray-900">{app.app_name}</div>
-                          <div className="text-xs text-gray-400">{app.smtp_user}</div>
+                          <div className="font-semibold text-sm text-gray-900 leading-tight">{app.app_name}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">{app.smtp_user}</div>
                         </div>
-                        {sel?.selected && appTemplates.length > 1 && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => toggleAllTemplates(app._id, true)}
-                              className="text-xs text-blue-600 hover:underline"
-                              disabled={allSelected}
-                            >
-                              All
-                            </button>
-                            <span className="text-gray-300">·</span>
-                            <button
-                              onClick={() => toggleAllTemplates(app._id, false)}
-                              className="text-xs text-gray-500 hover:underline"
-                              disabled={noneSelected}
-                            >
-                              None
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {sel?.selected && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              selectedCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {selectedCount}/{appTemplates.length}
+                            </span>
+                          )}
+                          {sel?.selected && appTemplates.length > 1 && (
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => toggleAllTemplates(app._id, true)}
+                                disabled={allSelected}
+                                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-blue-50"
+                              >
+                                All
+                              </button>
+                              <button
+                                onClick={() => toggleAllTemplates(app._id, false)}
+                                disabled={noneSelected}
+                                className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                              >
+                                None
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Templates */}
+                      {/* Templates grid */}
                       {sel?.selected && (
-                        <div className="divide-y divide-gray-100">
+                        <div className={`${appTemplates.length === 0 ? 'px-4 py-3' : 'p-2 grid grid-cols-1 sm:grid-cols-2 gap-1'}`}>
                           {appTemplates.length === 0 ? (
-                            <p className="px-4 py-3 text-xs text-gray-400">No templates for this app.</p>
+                            <p className="text-xs text-gray-400">No templates for this app.</p>
                           ) : (
                             appTemplates.map((t) => (
                               <label
                                 key={t.slug}
-                                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                className={`flex items-start gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                                  sel?.templates[t.slug] ? 'bg-blue-50 hover:bg-blue-100/70' : 'hover:bg-gray-50'
+                                }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={sel?.templates[t.slug] ?? false}
                                   onChange={() => toggleTemplate(app._id, t.slug)}
-                                  className="rounded border-gray-300 text-blue-600"
+                                  className="rounded border-gray-300 text-blue-600 mt-0.5 shrink-0"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-gray-800">{t.name}</div>
-                                  <div className="text-xs text-gray-400 font-mono">{t.slug}</div>
+                                  <div className="text-sm text-gray-800 font-medium leading-tight">{t.name}</div>
+                                  <div className="text-xs text-gray-400 font-mono truncate mt-0.5">{t.slug}</div>
                                 </div>
                                 {t.payload_schema_id && (
-                                  <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
+                                  <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5">
                                     typed
                                   </span>
                                 )}
@@ -456,7 +502,8 @@ export default function SDKExportPage() {
                 })}
               </div>
 
-              <div className="flex justify-between mt-6">
+              {/* Nav — outside scroll area */}
+              <div className="flex justify-between mt-5 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => setStep(0)}
                   className="flex items-center gap-2 px-4 py-2 text-gray-600 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"

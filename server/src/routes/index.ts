@@ -11,6 +11,7 @@ import { adminRouter } from './admin';
 import { unsubscribeRouter } from './unsubscribe';
 import { platformRouter } from './platform';
 import { aiRouter } from './ai';
+import { orgsRouter } from './orgs';
 import { apiLimiter } from '../middleware/rateLimit';
 
 export const apiRoutes = Router();
@@ -28,6 +29,9 @@ apiRoutes.use('/smtp-providers', smtpProvidersRouter);
 
 // App management (JWT auth)
 apiRoutes.use('/apps', appsRouter);
+
+// Organisation management (JWT auth)
+apiRoutes.use('/orgs', orgsRouter);
 
 // Admin (JWT + superadmin)
 apiRoutes.use('/admin', adminRouter);

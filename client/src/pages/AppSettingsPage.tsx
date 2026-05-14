@@ -8,10 +8,13 @@ import type { EmailApp, MemberRole, SmtpProvider } from '../types';
 
 type Tab = 'general' | 'smtp' | 'apikey' | 'members' | 'dns' | 'ai';
 
-// Shape returned by GET /apps/:id/members and POST /apps/:id/members
 interface MemberRow {
   _id: string;
   role: MemberRole;
+  can_read: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  can_manage: boolean;
   created_at: string;
   user: { _id: string; name?: string; email: string } | null;
 }
@@ -327,6 +330,7 @@ export function AppSettingsPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
               <h2 className="text-sm font-semibold text-gray-900">Members</h2>
 
+              {/* Invite form */}
               <form onSubmit={inviteMember} className="flex gap-2">
                 <input
                   type="email"
@@ -349,39 +353,85 @@ export function AppSettingsPage() {
                   disabled={inviting}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {inviting ? 'Adding...' : 'Add'}
+                  {inviting ? 'Adding…' : 'Add'}
                 </button>
               </form>
+
+              {/* Header row */}
+              {members.length > 0 && (
+                <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center px-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                  <span>User</span>
+                  <span className="w-10 text-center">Read</span>
+                  <span className="w-10 text-center">Write</span>
+                  <span className="w-10 text-center">Delete</span>
+                  <span className="w-10 text-center">Manage</span>
+                  <span className="w-12" />
+                </div>
+              )}
 
               <div className="space-y-2">
                 {members.map((m) => {
                   const u = m.user;
+                  const isOwner = m.role === 'owner';
+                  const updatePerm = async (field: 'can_read' | 'can_write' | 'can_delete' | 'can_manage', value: boolean) => {
+                    if (!u) return;
+                    try {
+                      const res = await client.put<MemberRow>(`/apps/${id}/members/${u._id}`, { [field]: value });
+                      setMembers((prev) => prev.map((x) => x._id === m._id ? { ...x, ...res.data } : x));
+                    } catch (err) { setError((err as Error).message); }
+                  };
+
                   return (
-                    <div key={m._id} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0">
-                        {(u?.name || u?.email || '?').charAt(0).toUpperCase()}
+                    <div key={m._id} className="grid md:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 gap-y-2 items-center py-2.5 border-b border-gray-100 last:border-0 px-2">
+                      {/* User info */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600 flex-shrink-0">
+                          {(u?.name || u?.email || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{u?.name || u?.email || '—'}</div>
+                          {u?.name && <div className="text-xs text-gray-400 truncate">{u.email}</div>}
+                        </div>
+                        <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
+                          isOwner ? 'bg-blue-100 text-blue-700' :
+                          m.role === 'editor' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>{m.role}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900">{u?.name || u?.email || '—'}</div>
-                        {u?.name && <div className="text-xs text-gray-400">{u.email}</div>}
+
+                      {/* CRUD toggles */}
+                      {(['can_read', 'can_write', 'can_delete', 'can_manage'] as const).map((flag) => (
+                        <div key={flag} className="flex items-center justify-center w-10">
+                          <input
+                            type="checkbox"
+                            checked={m[flag]}
+                            disabled={isOwner}
+                            onChange={(e) => updatePerm(flag, e.target.checked)}
+                            className="w-4 h-4 accent-blue-600 disabled:opacity-40 cursor-pointer disabled:cursor-default"
+                            title={flag.replace('can_', '')}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Remove */}
+                      <div className="w-12 flex justify-end">
+                        {!isOwner && u && (
+                          <button
+                            onClick={() => removeMember(u._id)}
+                            className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        m.role === 'owner' ? 'bg-blue-100 text-blue-700' :
-                        m.role === 'editor' ? 'bg-green-100 text-green-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>{m.role}</span>
-                      {m.role !== 'owner' && u && (
-                        <button
-                          onClick={() => removeMember(u._id)}
-                          className="text-xs text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      )}
                     </div>
                   );
                 })}
               </div>
+
+              <p className="text-xs text-gray-400">
+                Read — view templates &amp; logs · Write — create/edit templates · Delete — remove templates · Manage — SMTP, API key, member management
+              </p>
             </div>
           )}
 

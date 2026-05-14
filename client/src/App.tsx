@@ -11,6 +11,7 @@ import { AppSettingsPage } from './pages/AppSettingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { OrgSetupPage } from './pages/OrgSetupPage';
 import { LandingPage } from './pages/LandingPage';
 import { FeaturesPage } from './pages/FeaturesPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
@@ -31,6 +32,11 @@ export default function App() {
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Org setup — authenticated but outside main layout */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/org-setup" element={<OrgSetupPage />} />
+        </Route>
 
         {/* Protected app shell */}
         <Route element={<ProtectedRoute />}>

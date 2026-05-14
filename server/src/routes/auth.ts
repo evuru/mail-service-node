@@ -1,8 +1,22 @@
 import { Router, Request, Response } from 'express';
-import { User, hashPassword } from '../models/User';
+import { User, IUser, hashPassword } from '../models/User';
+import { Organization } from '../models/Organization';
 import { requireAuth, signToken } from '../middleware/auth';
 
 export const authRouter = Router();
+
+function userPayload(u: IUser) {
+  return {
+    _id:                  u._id,
+    name:                 u.name,
+    email:                u.email,
+    role:                 u.role,
+    is_active:            u.is_active,
+    org_id:               u.org_id ?? null,
+    is_org_admin:         u.is_org_admin ?? false,
+    profile_image_base64: u.profile_image_base64 ?? '',
+  };
+}
 
 // POST /auth/register
 authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
@@ -21,16 +35,27 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
       res.status(409).json({ error: 'A user with this email already exists' });
       return;
     }
-    // First user ever becomes superadmin
     const count = await User.countDocuments();
-    const role = count === 0 ? 'superadmin' : 'user';
+    const isSuperadmin = count === 0;
+    const role = isSuperadmin ? 'superadmin' : 'user';
     const password_hash = await hashPassword(password);
-    const user = await User.create({ name, email, password_hash, role });
+    const created = await User.create({ name, email, password_hash, role });
+    const user = await User.findById(created._id) as IUser;
+
+    // Auto-create "Mail Service" org for the first superadmin
+    if (isSuperadmin) {
+      const org = await Organization.create({
+        name:       'Mail Service',
+        slug:       'mail-service',
+        created_by: user._id,
+      });
+      user.org_id = org._id;
+      user.is_org_admin = true;
+      await user.save();
+    }
+
     const token = signToken(user._id);
-    res.status(201).json({
-      token,
-      user: { _id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    res.status(201).json({ token, user: userPayload(user) });
   } catch {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -46,19 +71,16 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
   try {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user || !user.is_active) {
-      res.status(401).json({ error: 'Invalid email or password i' });
+      res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
     const ok = await user.comparePassword(password);
     if (!ok) {
-      res.status(401).json({ error: 'Invalid email or password c' });
+      res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
     const token = signToken(user._id);
-    res.json({
-      token,
-      user: { _id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    res.json({ token, user: userPayload(user) });
   } catch {
     res.status(500).json({ error: 'Login failed' });
   }
@@ -66,17 +88,24 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<void> => 
 
 // GET /auth/me
 authRouter.get('/me', requireAuth, (req: Request, res: Response): void => {
-  const u = req.user!;
-  res.json({ _id: u._id, name: u.name, email: u.email, role: u.role });
+  res.json(userPayload(req.user!));
 });
 
-// PUT /auth/me
+// PUT /auth/me — update profile
 authRouter.put('/me', requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password } = req.body;
+  const { name, email, password, profile_image_base64 } = req.body;
   const user = req.user!;
   try {
     if (name !== undefined) user.name = name;
     if (email) user.email = email.toLowerCase();
+    if (profile_image_base64 !== undefined) {
+      // Guard against huge payloads (base64 ~1.37× original — 300KB file ≈ 410KB base64)
+      if (profile_image_base64.length > 450_000) {
+        res.status(413).json({ error: 'Image too large — keep it under 300 KB' });
+        return;
+      }
+      user.profile_image_base64 = profile_image_base64;
+    }
     if (password) {
       if (password.length < 8) {
         res.status(400).json({ error: 'Password must be at least 8 characters' });
@@ -86,7 +115,7 @@ authRouter.put('/me', requireAuth, async (req: Request, res: Response): Promise<
     }
     await user.save();
     const token = signToken(user._id);
-    res.json({ token, user: { _id: user._id, name: user.name, email: user.email, role: user.role, is_active: user.is_active } });
+    res.json({ token, user: userPayload(user) });
   } catch {
     res.status(500).json({ error: 'Update failed' });
   }
