@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Copy, CheckCircle } from 'lucide-react';
+import { ArrowRight, Copy, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { PublicPage, PageHero } from '../components/PublicLayout';
 
@@ -44,18 +44,18 @@ function DocsBody() {
 
 function Sidebar() {
   const sections = [
-    { id: 'authentication', label: 'Authentication' },
-    { id: 'organisations', label: 'Organisations' },
-    { id: 'multi-app', label: 'Multi-App Setup' },
-    { id: 'permissions', label: 'App Permissions' },
-    { id: 'send', label: 'Send via Template' },
-    { id: 'send-raw', label: 'Send Raw (Custom)' },
-    { id: 'template-variables', label: 'Template Variables' },
-    { id: 'templates-api', label: 'Templates API' },
-    { id: 'logs', label: 'Send Logs' },
-    { id: 'sdk-export', label: 'SDK Export' },
-    { id: 'unsubscribe', label: 'Unsubscribe System' },
-    { id: 'environment', label: 'Environment Variables' },
+    { id: 'authentication',    label: 'Authentication' },
+    { id: 'organisations',     label: 'Organisations' },
+    { id: 'multi-app',         label: 'Multi-App Setup' },
+    { id: 'permissions',       label: 'App Permissions' },
+    { id: 'send',              label: 'Send via Template' },
+    { id: 'send-raw',          label: 'Send Raw (Custom)' },
+    { id: 'template-variables',label: 'Template Variables' },
+    { id: 'templates-api',     label: 'Templates API' },
+    { id: 'logs',              label: 'Send Logs' },
+    { id: 'sdk-export',        label: 'SDK Export' },
+    { id: 'unsubscribe',       label: 'Unsubscribe System' },
+    { id: 'environment',       label: 'Environment Variables' },
   ];
 
   return (
@@ -80,7 +80,7 @@ function Sidebar() {
   );
 }
 
-// ─── Shared doc components ────────────────────────────────────────────────────
+// ─── Shared components ────────────────────────────────────────────────────────
 
 function DocSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -91,6 +91,10 @@ function DocSection({ id, title, children }: { id: string; title: string; childr
   );
 }
 
+function H3({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-base font-bold text-slate-900 mt-8">{children}</h3>;
+}
+
 function Para({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-slate-600 leading-relaxed">{children}</p>;
 }
@@ -99,21 +103,14 @@ function InlineCode({ children }: { children: React.ReactNode }) {
   return <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[12px] font-mono">{children}</code>;
 }
 
-function CodeBlock({ label, code, lang: _lang = 'text' }: { label?: string; code: string; lang?: string }) {
+function CodeBlock({ label, code }: { label?: string; code: string }) {
   const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-950">
       {label && (
         <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
-          <span className="text-[10px] font-mono text-slate-500">{label}</span>
-          <button onClick={copy}
+          <span className="text-[10px] font-mono text-slate-400">{label}</span>
+          <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
             className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors">
             {copied ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
             {copied ? 'Copied' : 'Copy'}
@@ -125,14 +122,29 @@ function CodeBlock({ label, code, lang: _lang = 'text' }: { label?: string; code
   );
 }
 
+function Collapsible({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-sm font-semibold text-slate-700"
+      >
+        {label}
+        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+      </button>
+      {open && <div className="border-t border-slate-200">{children}</div>}
+    </div>
+  );
+}
+
 function PropTable({ rows }: { rows: { name: string; type: string; required?: boolean; desc: string }[] }) {
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
       <div className="grid grid-cols-[1fr_80px_60px_2fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Field</span>
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Type</span>
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Req.</span>
-        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Description</span>
+        {['Field', 'Type', 'Req.', 'Description'].map((h) => (
+          <span key={h} className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
+        ))}
       </div>
       {rows.map((r) => (
         <div key={r.name} className="grid grid-cols-[1fr_80px_60px_2fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
@@ -146,16 +158,41 @@ function PropTable({ rows }: { rows: { name: string; type: string; required?: bo
   );
 }
 
+function RouteTable({ rows }: { rows: { method: string; path: string; desc: string }[] }) {
+  const methodColor = (m: string) =>
+    m === 'GET' ? 'bg-green-100 text-green-700' :
+    m === 'POST' ? 'bg-blue-100 text-blue-700' :
+    m === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
+    'bg-red-100 text-red-700';
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
+      <div className="grid grid-cols-[80px_1fr_2fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
+        {['Method', 'Path', 'Description'].map((h) => (
+          <span key={h} className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div key={r.path} className="grid grid-cols-[80px_1fr_2fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors items-center gap-2">
+          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono w-fit ${methodColor(r.method)}`}>{r.method}</span>
+          <code className="text-[12px] font-mono text-indigo-700">{r.path}</code>
+          <span className="text-[12px] text-slate-600">{r.desc}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function InfoBox({ children, color = 'indigo' }: { children: React.ReactNode; color?: 'indigo' | 'amber' | 'emerald' }) {
   const cls = {
-    indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800',
-    amber:  'bg-amber-50 border-amber-200 text-amber-800',
-    emerald:'bg-emerald-50 border-emerald-200 text-emerald-800',
+    indigo:  'bg-indigo-50 border-indigo-200 text-indigo-800',
+    amber:   'bg-amber-50 border-amber-200 text-amber-800',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
   }[color];
   return (
-    <div className={`flex items-start gap-3 border rounded-xl p-4 text-sm mt-4 ${cls}`}>
-      <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 opacity-70" />
-      <span>{children}</span>
+    <div className={`flex items-start gap-3 border rounded-xl p-4 text-sm ${cls}`}>
+      <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 opacity-60" />
+      <span className="leading-relaxed">{children}</span>
     </div>
   );
 }
@@ -166,69 +203,75 @@ function AuthSection() {
   return (
     <DocSection id="authentication" title="Authentication">
       <Para>
-        MailService uses two authentication mechanisms: <InlineCode>JWT tokens</InlineCode> for dashboard and management API calls,
-        and <InlineCode>X-API-KEY</InlineCode> headers for the email sending API. External backends only ever need the API key.
+        MailService uses <strong>two separate auth mechanisms</strong>: <InlineCode>JWT tokens</InlineCode> for
+        dashboard users managing apps and templates, and <InlineCode>X-API-KEY</InlineCode> headers for your
+        backend sending emails. External servers only ever need the API key — no JWT required.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Register</h3>
+      <H3>Register</H3>
       <Para>
-        The first user to register is automatically promoted to <InlineCode>superadmin</InlineCode> and placed in the "Mail Service" organisation.
-        All subsequent users are prompted to create or join an organisation after signing up.
+        The first user to register becomes <InlineCode>superadmin</InlineCode> and is placed in the "Mail Service" organisation automatically.
+        All subsequent users register normally and are then prompted to create or join an organisation.
       </Para>
       <CodeBlock label="POST /v1/auth/register" code={`{
   "name": "Your Name",
   "email": "you@example.com",
-  "password": "your-password"
+  "password": "your-password"    // min 8 characters
 }
 
 // Response
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "token": "eyJhbGciOiJIUzI1NiJ9...",   // JWT — valid 7 days
   "user": {
     "_id": "uuid",
     "name": "Your Name",
     "email": "you@example.com",
-    "role": "user",
-    "org_id": null,        // null until user creates/joins an org
+    "role": "user",               // "superadmin" for the first user
+    "org_id": null,               // null until user creates/joins an org
     "is_org_admin": false,
-    "is_active": true
+    "is_active": true,
+    "profile_image_base64": ""
   }
 }`} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Login</h3>
+      <H3>Login</H3>
       <CodeBlock label="POST /v1/auth/login" code={`{
   "email": "you@example.com",
   "password": "your-password"
 }
 
-// Response
+// Response — same shape as /register
 {
   "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "user": {
-    "_id": "uuid",
-    "name": "Your Name",
-    "email": "you@example.com",
-    "role": "user",
-    "org_id": "org-uuid",
-    "is_org_admin": true,
-    "profile_image_base64": ""
-  }
+  "user": { "_id": "...", "role": "user", "org_id": "org-uuid", ... }
 }`} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Update your profile</h3>
+      <H3>Update your profile</H3>
       <Para>
-        Change name, email, password, or avatar at any time. Returns a fresh token with the updated user.
+        All fields are optional — only send what you want to change. Returns a fresh token reflecting the updated user.
+        Upload a profile avatar by passing a base64-encoded image string (max ~300 KB).
       </Para>
-      <CodeBlock label="PUT /v1/auth/me  (Authorization: Bearer)" code={`{
+      <CodeBlock label="PUT /v1/auth/me  (Authorization: Bearer <token>)" code={`{
   "name": "New Name",
   "email": "new@example.com",
-  "password": "new-password",          // optional — leave out to keep current
-  "profile_image_base64": "data:image/jpeg;base64,/9j/..." // optional, max ~300 KB
-}`} />
+  "password": "new-password",                          // optional
+  "profile_image_base64": "data:image/jpeg;base64,..."  // optional, max ~300 KB
+}
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Using your API key</h3>
-      <Para>Find your app's API key in <strong>App Settings → API Key</strong>. Pass it as a header on every send/template/log request.</Para>
-      <CodeBlock label="Header" code={`X-API-KEY: your-app-api-key-here`} />
+// Response — { token, user } same as login`} />
+
+      <H3>Using your API key</H3>
+      <Para>
+        Find your app's API key in <strong>App Settings → API Key</strong>. Pass it as a header on every
+        send / template / log request. JWT is not needed for these routes.
+      </Para>
+      <CodeBlock label="All sending endpoints" code={`X-API-KEY: your-app-api-key-here
+Content-Type: application/json`} />
+
+      <InfoBox>
+        The JWT is stored in <InlineCode>localStorage</InlineCode> by the dashboard. Your backend should store API keys
+        in environment variables — never hardcode them in source code.
+      </InfoBox>
     </DocSection>
   );
 }
@@ -237,55 +280,57 @@ function OrgsSection() {
   return (
     <DocSection id="organisations" title="Organisations">
       <Para>
-        Every user belongs to an <strong>Organisation</strong>. Orgs group teams together and own a shared name, slug, and logo.
-        They don't affect API sending — they govern who can be invited to which apps.
+        Every user belongs to an <strong>Organisation</strong>. Orgs provide a shared identity — name, slug, and logo.
+        They don't change how emails are sent, but they govern who can be invited to collaborate on Email Apps.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Creating an organisation</h3>
+      <H3>Structure</H3>
+      <CodeBlock code={`Organisation  (name, slug, logo_base64)
+  └── Users  (org members — some flagged as is_org_admin)
+        └── EmailApp memberships  (per-app CRUD permissions)`} />
+
+      <H3>Creating an organisation</H3>
       <CodeBlock label="POST /v1/orgs  (Authorization: Bearer)" code={`{ "name": "Acme Inc." }
 
 // Response
 {
   "_id": "org-uuid",
   "name": "Acme Inc.",
-  "slug": "acme-inc",
+  "slug": "acme-inc",         // auto-derived, unique
   "created_by": "user-uuid",
   "created_at": "2026-05-14T10:00:00.000Z"
 }`} />
-      <Para>The caller is automatically set as the org admin.</Para>
+      <Para>The caller is automatically made org admin. A user can only belong to one organisation at a time.</Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Org management</h3>
-      <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
-        <div className="grid grid-cols-[90px_1fr_2fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Method</span>
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Path</span>
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Description</span>
-        </div>
-        {[
-          { method: 'GET',    path: '/v1/orgs/me',                    desc: 'Get your organisation' },
-          { method: 'PUT',    path: '/v1/orgs/me',                    desc: 'Update name or logo (org admin only). Accepts logo_base64 ≤ 300 KB.' },
-          { method: 'GET',    path: '/v1/orgs/me/members',            desc: 'List all org members' },
-          { method: 'POST',   path: '/v1/orgs/me/members',            desc: 'Invite a user by email (org admin only). User must already have an account.' },
-          { method: 'PUT',    path: '/v1/orgs/me/members/:userId',    desc: 'Set is_org_admin on a member (org admin only)' },
-          { method: 'DELETE', path: '/v1/orgs/me/members/:userId',    desc: 'Remove a member from the org (org admin only)' },
-          { method: 'POST',   path: '/v1/orgs/join',                  desc: 'Join an org by org_id (self-service)' },
-        ].map((r) => (
-          <div key={r.path} className="grid grid-cols-[90px_1fr_2fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-            <span className={`inline-block self-start px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${
-              r.method === 'GET' ? 'bg-green-100 text-green-700' :
-              r.method === 'POST' ? 'bg-blue-100 text-blue-700' :
-              r.method === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-red-100 text-red-700'
-            }`}>{r.method}</span>
-            <code className="text-[12px] font-mono text-indigo-700">{r.path}</code>
-            <span className="text-[12px] text-slate-600">{r.desc}</span>
-          </div>
-        ))}
-      </div>
+      <H3>Inviting members</H3>
+      <Para>
+        The invited user must already have an account. Send them the registration link first, then invite by email.
+      </Para>
+      <CodeBlock label="POST /v1/orgs/me/members  (org admin only)" code={`{
+  "email": "teammate@example.com",
+  "is_org_admin": false        // optional — default false
+}
 
-      <InfoBox color="indigo">
-        All org routes require <InlineCode>Authorization: Bearer &lt;token&gt;</InlineCode>. Invite and management actions additionally require the caller to be an org admin.
-      </InfoBox>
+// Response
+{
+  "_id": "user-uuid",
+  "name": "Teammate",
+  "email": "teammate@example.com",
+  "is_org_admin": false
+}`} />
+
+      <H3>All org routes</H3>
+      <RouteTable rows={[
+        { method: 'GET',    path: '/v1/orgs/me',                  desc: 'Get your organisation' },
+        { method: 'PUT',    path: '/v1/orgs/me',                  desc: 'Update name or logo (org admin). logo_base64 ≤ 300 KB.' },
+        { method: 'GET',    path: '/v1/orgs/me/members',          desc: 'List org members' },
+        { method: 'POST',   path: '/v1/orgs/me/members',          desc: 'Invite user by email (org admin)' },
+        { method: 'PUT',    path: '/v1/orgs/me/members/:userId',  desc: 'Promote / demote org admin' },
+        { method: 'DELETE', path: '/v1/orgs/me/members/:userId',  desc: 'Remove member from org' },
+        { method: 'POST',   path: '/v1/orgs/join',                desc: 'Join an org by org_id (self-service)' },
+      ]} />
+
+      <InfoBox>All org routes require <InlineCode>Authorization: Bearer &lt;token&gt;</InlineCode>. Invite, update, and remove actions additionally require the caller to be an org admin.</InfoBox>
     </DocSection>
   );
 }
@@ -294,41 +339,51 @@ function MultiAppSection() {
   return (
     <DocSection id="multi-app" title="Multi-App Setup">
       <Para>
-        Each <InlineCode>Email App</InlineCode> is a fully isolated workspace — its own SMTP, API key, templates, and logs.
-        Create one per product, domain, or sending identity. Your backend stores each key as an environment variable and uses the right one per call.
+        Each <InlineCode>Email App</InlineCode> is a fully isolated workspace — its own SMTP credentials, API key, templates, and logs.
+        Create one per product, domain, or sending identity. Your backend stores each key as an environment variable
+        and picks the right one per call.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Creating apps</h3>
+      <H3>Creating apps</H3>
       <Para>
-        From the dashboard, click the <strong>app switcher</strong> at the top of the sidebar → <strong>New App</strong>.
-        Configure SMTP under <strong>Settings → SMTP</strong>. Copy the API key from <strong>Settings → API Key</strong>.
+        Dashboard → app switcher at the top of the sidebar → <strong>New App</strong>.
+        Configure SMTP under <strong>App Settings → SMTP</strong>. Copy the API key from <strong>App Settings → API Key</strong>.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Backend setup</h3>
-      <CodeBlock label="Environment variables" code={`MAIL_SERVICE_URL=https://mail.yourdomain.com/v1
+      <H3>Backend setup</H3>
+      <CodeBlock label=".env" code={`MAIL_SERVICE_URL=https://mail.yourdomain.com/v1
 MAIL_KEY_NOTIFICATIONS=d8630c73-6ed9-41e3-a4ed-30b6f48e10d9
 MAIL_KEY_BILLING=f2a10c84-7be2-52f4-b5fd-41c7g59f21e0`} />
 
-      <CodeBlock label="Node.js — send from the right app" code={`const MAIL = process.env.MAIL_SERVICE_URL;
+      <CodeBlock label="Node.js" code={`const MAIL = process.env.MAIL_SERVICE_URL;
 
-// Notification email — uses Notifications app SMTP + templates
+// Notification email — Notifications app SMTP + templates
 await fetch(\`\${MAIL}/send\`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.MAIL_KEY_NOTIFICATIONS },
-  body: JSON.stringify({ template_slug: 'welcome-email', recipient: user.email, data: { name: user.name } }),
+  body: JSON.stringify({
+    template_slug: 'welcome-email',
+    recipient: user.email,
+    data: { name: user.name, ctaUrl: 'https://app.acme.com/start' },
+  }),
 });
 
-// Billing email — uses Billing app SMTP + templates
+// Invoice email — Billing app SMTP + templates
 await fetch(\`\${MAIL}/send\`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.MAIL_KEY_BILLING },
-  body: JSON.stringify({ template_slug: 'invoice-ready', recipient: user.email, data: { invoiceId: '1042' } }),
+  body: JSON.stringify({
+    template_slug: 'invoice-ready',
+    recipient: user.email,
+    data: { invoiceId: '1042', amount: '$49.00' },
+  }),
 });`} />
 
-      <Para>
-        Templates are scoped per app. Global templates (created by superadmin with <InlineCode>app_id: null</InlineCode>) are visible to all apps.
-        App-specific templates are private to that app.
-      </Para>
+      <InfoBox>
+        Templates are scoped per app. <strong>Global templates</strong> (created by superadmin with <InlineCode>app_id: null</InlineCode>) are
+        visible to all apps. App-specific templates are private to that app. When a slug exists in both, the
+        app-specific version wins.
+      </InfoBox>
     </DocSection>
   );
 }
@@ -337,30 +392,31 @@ function PermissionsSection() {
   return (
     <DocSection id="permissions" title="App Permissions">
       <Para>
-        App membership gives a dashboard user access to a specific Email App. Permissions are expressed as four independent flags per member — they can be set individually after adding someone, regardless of the initial role preset.
+        App membership gives a dashboard user access to a specific Email App. Permissions use four independent boolean
+        flags per member. These can be toggled individually in <strong>App Settings → Members</strong> after the initial role preset is applied.
       </Para>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
-        <div className="grid grid-cols-[1fr_2fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
+        <div className="grid grid-cols-[120px_2fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Flag</span>
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">What it grants</span>
         </div>
         {[
-          { flag: 'can_read',   desc: 'View templates, logs, and schemas for this app' },
+          { flag: 'can_read',   desc: 'View templates, logs, and payload schemas for this app' },
           { flag: 'can_write',  desc: 'Create and edit templates and payload schemas' },
           { flag: 'can_delete', desc: 'Delete templates' },
           { flag: 'can_manage', desc: 'Edit SMTP settings, regenerate API key, manage the member roster' },
         ].map((r) => (
-          <div key={r.flag} className="grid grid-cols-[1fr_2fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+          <div key={r.flag} className="grid grid-cols-[120px_2fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
             <code className="text-[12px] font-mono text-indigo-700">{r.flag}</code>
             <span className="text-[12px] text-slate-600">{r.desc}</span>
           </div>
         ))}
       </div>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Role presets</h3>
+      <H3>Role presets</H3>
       <Para>
-        When inviting a member you choose a role preset, which sets the initial flags. You can then adjust individual checkboxes in <strong>App Settings → Members</strong>.
+        When inviting a member you choose a preset that sets the initial flag values. Individual flags can be adjusted afterwards.
       </Para>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
@@ -371,28 +427,38 @@ function PermissionsSection() {
           ))}
         </div>
         {[
-          { role: 'owner',  flags: [true, true, true, true]  },
-          { role: 'editor', flags: [true, true, false, false] },
-          { role: 'viewer', flags: [true, false, false, false] },
+          { role: 'owner',  color: 'bg-blue-100 text-blue-700',   flags: [true, true, true, true]   },
+          { role: 'editor', color: 'bg-green-100 text-green-700', flags: [true, true, false, false] },
+          { role: 'viewer', color: 'bg-slate-100 text-slate-600', flags: [true, false, false, false] },
         ].map((r) => (
           <div key={r.role} className="grid grid-cols-[100px_1fr_1fr_1fr_1fr] px-4 py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors items-center">
-            <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold w-fit ${
-              r.role === 'owner' ? 'bg-blue-100 text-blue-700' :
-              r.role === 'editor' ? 'bg-green-100 text-green-700' :
-              'bg-slate-100 text-slate-600'
-            }`}>{r.role}</span>
+            <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold w-fit ${r.color}`}>{r.role}</span>
             {r.flags.map((f, i) => (
-              <div key={i} className="text-center">{f
-                ? <span className="text-emerald-600 font-bold text-sm">✓</span>
-                : <span className="text-slate-300 text-sm">—</span>
-              }</div>
+              <div key={i} className="text-center">
+                {f ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300">—</span>}
+              </div>
             ))}
           </div>
         ))}
       </div>
 
+      <H3>Responses include permissions</H3>
+      <Para>Every app list and app detail response includes <InlineCode>my_permissions</InlineCode> for the current user.</Para>
+      <CodeBlock label="GET /v1/apps  response excerpt" code={`{
+  "_id": "app-uuid",
+  "app_name": "Notify",
+  "my_role": "editor",
+  "my_permissions": {
+    "can_read":   true,
+    "can_write":  true,
+    "can_delete": false,
+    "can_manage": false
+  }
+}`} />
+
       <InfoBox>
-        Permissions apply to <strong>dashboard users only</strong>. External API callers using <InlineCode>X-API-KEY</InlineCode> bypass all role checks — the key identifies the app, not a user.
+        Permissions apply to <strong>dashboard users only</strong>. External API callers using <InlineCode>X-API-KEY</InlineCode>{' '}
+        bypass all role checks — the key identifies the app, not a user.
       </InfoBox>
     </DocSection>
   );
@@ -402,8 +468,8 @@ function SendSection() {
   return (
     <DocSection id="send" title="Send via Template">
       <Para>
-        Renders a pre-built Handlebars template with your data, checks for unsubscribes, and delivers via your app's SMTP.
-        Retries up to 3 times with exponential backoff on failure.
+        Renders a pre-built Handlebars template with your data, checks for unsubscribes, inlines CSS with Juice,
+        and delivers via your app's SMTP. Retries up to 3 times with exponential backoff on transient SMTP errors.
       </Para>
 
       <CodeBlock label="POST /v1/send  (X-API-KEY required)" code={`{
@@ -417,20 +483,23 @@ function SendSection() {
 }`} />
 
       <PropTable rows={[
-        { name: 'template_slug', type: 'string', required: true, desc: 'The slug of the template to render. Looks up app-specific first, then global.' },
-        { name: 'recipient', type: 'string', required: true, desc: 'Recipient email address.' },
-        { name: 'data', type: 'object', required: false, desc: 'Arbitrary key-value pairs injected into the Handlebars template.' },
+        { name: 'template_slug', type: 'string', required: true,  desc: 'Slug of the template to render. App-specific wins over global if both exist with the same slug.' },
+        { name: 'recipient',     type: 'string', required: true,  desc: 'Recipient email address.' },
+        { name: 'data',          type: 'object', required: false, desc: 'Key-value pairs injected into the Handlebars template. Auto-injected vars (appName, year, unsubscribeUrl) are added on top.' },
       ]} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Response</h3>
+      <H3>Response</H3>
       <CodeBlock code={`// Success
 { "success": true, "messageId": "<abc123@smtp.acme.com>" }
 
-// Unsubscribed (not an error — recipient opted out)
+// Unsubscribed — recipient opted out (not an error, send is skipped and logged)
 { "success": false, "error": "Recipient has unsubscribed" }
 
 // Template not found
-{ "error": "Template \"welcome-email\" not found" }   // 400`} />
+{ "error": "Template \"welcome-email\" not found" }   // HTTP 400
+
+// SMTP failure after retries
+{ "error": "SMTP connection failed" }                  // HTTP 500`} />
     </DocSection>
   );
 }
@@ -439,27 +508,28 @@ function SendRawSection() {
   return (
     <DocSection id="send-raw" title="Send Raw (Custom Message)">
       <Para>
-        Send a one-off email without a template — supply the subject and HTML directly. Useful for dynamic alerts,
-        admin notifications, or programmatically generated content. Unsubscribe checks and retries still apply.
+        Send a one-off email without a pre-built template — supply the subject and HTML directly.
+        Useful for dynamic alerts, admin notifications, or programmatically generated content.
+        Unsubscribe checks, CSS inlining, and retries still apply.
       </Para>
 
       <CodeBlock label="POST /v1/send/raw  (X-API-KEY required)" code={`{
   "subject": "Your order #1042 has shipped",
-  "html": "<h1>Great news!</h1><p>Your order is on its way.</p>",
+  "html": "<h1>Great news!</h1><p>Your order is on its way. <a href='https://track.acme.com/1042'>Track it here</a>.</p>",
   "recipient": "user@example.com",
-  "from_name": "Acme Orders"
+  "from_name": "Acme Orders"   // optional — falls back to smtp_from_name or app_name
 }`} />
 
       <PropTable rows={[
-        { name: 'subject', type: 'string', required: true, desc: 'Email subject line.' },
-        { name: 'html', type: 'string', required: true, desc: 'Full HTML body. CSS is auto-inlined by Juice before sending.' },
-        { name: 'recipient', type: 'string', required: true, desc: 'Recipient email address.' },
-        { name: 'from_name', type: 'string', required: false, desc: 'Sender display name. Falls back to app smtp_from_name or app_name.' },
+        { name: 'subject',   type: 'string', required: true,  desc: 'Email subject line.' },
+        { name: 'html',      type: 'string', required: true,  desc: 'Full HTML body. <style> blocks are auto-inlined by Juice before sending.' },
+        { name: 'recipient', type: 'string', required: true,  desc: 'Recipient email address.' },
+        { name: 'from_name', type: 'string', required: false, desc: 'Sender display name. Falls back to app smtp_from_name, then app_name.' },
       ]} />
 
       <InfoBox>
-        Raw sends are logged with <InlineCode>template_slug: "_raw"</InlineCode> — visible in your Send Logs dashboard.
-        Use templates where possible for consistent branding and AI assistance.
+        Raw sends are logged with <InlineCode>template_slug: "_raw"</InlineCode> so they appear in your Send Logs
+        dashboard. Use templates where possible — they give you live preview, AI assistance, and consistent branding.
       </InfoBox>
     </DocSection>
   );
@@ -469,44 +539,45 @@ function TemplateVarsSection() {
   return (
     <DocSection id="template-variables" title="Template Variables">
       <Para>
-        These variables are automatically available in every template. You don't need to pass them in <InlineCode>data</InlineCode>.
+        These variables are automatically injected into every template render. You do not need to include them in your <InlineCode>data</InlineCode> payload.
       </Para>
 
       <PropTable rows={[
-        { name: '{{appName}}', type: 'string', desc: 'The app\'s name from App Settings → General.' },
-        { name: '{{year}}', type: 'string', desc: 'The current 4-digit year, e.g. "2026".' },
-        { name: '{{unsubscribeUrl}}', type: 'string', desc: 'HMAC-signed unsubscribe link. Only present if app_url or SERVER_URL is set. Guard with {{#if unsubscribeUrl}}.' },
+        { name: '{{appName}}',       type: 'string', desc: 'The app\'s display name from App Settings → General.' },
+        { name: '{{year}}',          type: 'string', desc: 'Current 4-digit year — e.g. "2026". Useful in copyright footers.' },
+        { name: '{{unsubscribeUrl}}',type: 'string', desc: 'HMAC-signed unsubscribe link. Only present when app_url or SERVER_URL env var is set. Guard with {{#if unsubscribeUrl}}.' },
       ]} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Example footer with unsubscribe link</h3>
-      <CodeBlock label="HTML (in any template)" code={`{{#if unsubscribeUrl}}
+      <H3>Unsubscribe footer (recommended)</H3>
+      <CodeBlock label="Handlebars snippet" code={`{{#if unsubscribeUrl}}
 <p style="font-size: 11px; color: #999; text-align: center; margin-top: 32px;">
   Don't want these emails?
-  <a href="{{unsubscribeUrl}}" style="color: #999;">Unsubscribe</a>
+  <a href="{{unsubscribeUrl}}" style="color: #999; text-decoration: underline;">Unsubscribe</a>
 </p>
 {{/if}}`} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Layout inheritance</h3>
+      <H3>Layout inheritance</H3>
       <Para>
-        Create a template with <InlineCode>is_layout: true</InlineCode> and a slug like <InlineCode>_base_layout</InlineCode>.
-        Other templates with <InlineCode>use_layout: true</InlineCode> will have their <InlineCode>body_html</InlineCode> injected into <InlineCode>{'{{body}}'}</InlineCode>.
+        Create a layout template (slug: <InlineCode>_base_layout</InlineCode>, <InlineCode>is_layout: true</InlineCode>).
+        Any template with <InlineCode>use_layout: true</InlineCode> will have its <InlineCode>body_html</InlineCode>{' '}
+        injected into the <InlineCode>{'{{{body}}}'}</InlineCode> slot. Use triple braces to render unescaped HTML.
       </Para>
-      <CodeBlock label="Base layout" code={`<!-- _base_layout -->
-<!DOCTYPE html>
+      <CodeBlock label="_base_layout — skeleton" code={`<!DOCTYPE html>
 <html>
 <head>
   <style>
-    body { font-family: sans-serif; background: #f4f4f5; }
-    .card { background: white; border-radius: 8px; padding: 32px; max-width: 560px; margin: 40px auto; }
+    body { font-family: -apple-system, sans-serif; background: #f4f4f5; margin: 0; }
+    .card { background: white; border-radius: 8px; padding: 40px; max-width: 560px; margin: 40px auto; }
+    .footer { font-size: 11px; color: #aaa; text-align: center; margin-top: 24px; }
   </style>
 </head>
 <body>
   <div class="card">
     {{{body}}}
     {{#if unsubscribeUrl}}
-    <p style="font-size:11px;color:#aaa;margin-top:24px;">
-      <a href="{{unsubscribeUrl}}">Unsubscribe</a>
-    </p>
+    <div class="footer">
+      <a href="{{unsubscribeUrl}}" style="color:#aaa;">Unsubscribe</a>
+    </div>
     {{/if}}
   </div>
 </body>
@@ -518,31 +589,37 @@ function TemplateVarsSection() {
 function TemplatesApiSection() {
   return (
     <DocSection id="templates-api" title="Templates API">
-      <Para>All template endpoints require the <InlineCode>X-API-KEY</InlineCode> header.</Para>
+      <Para>All template and preview endpoints require <InlineCode>X-API-KEY</InlineCode>. Responses include both app-specific and global templates.</Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-4">List templates</h3>
-      <CodeBlock label="GET /v1/templates" code={`// Returns app-specific templates + global templates (app_id: null)
-[
-  {
-    "_id": "uuid",
-    "slug": "welcome-email",
-    "name": "Welcome Email",
-    "subject": "Welcome, {{name}}!",
-    "is_layout": false,
-    "use_layout": true,
-    "is_global": false,
-    "app_id": "app-uuid"
-  }
-]`} />
+      <RouteTable rows={[
+        { method: 'GET',    path: '/v1/templates',        desc: 'List all templates visible to this app (own + global)' },
+        { method: 'POST',   path: '/v1/templates',        desc: 'Create a new template' },
+        { method: 'GET',    path: '/v1/templates/:slug',  desc: 'Get a single template by slug' },
+        { method: 'PUT',    path: '/v1/templates/:slug',  desc: 'Update a template' },
+        { method: 'DELETE', path: '/v1/templates/:slug',  desc: 'Delete a template' },
+        { method: 'POST',   path: '/v1/preview/:slug',    desc: 'Render a template without sending' },
+        { method: 'POST',   path: '/v1/preview/raw',      desc: 'Render arbitrary HTML + Handlebars' },
+      ]} />
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Preview a template</h3>
-      <CodeBlock label="POST /v1/preview/:slug" code={`// Body: same data object as /v1/send
-{ "name": "Alex", "ctaUrl": "https://..." }
+      <H3>Preview a template</H3>
+      <Para>Renders template + layout with the given data. Useful for testing before going live.</Para>
+      <CodeBlock label="POST /v1/preview/:slug" code={`// Body — the same data object you'd pass to /v1/send
+{ "name": "Alex", "ctaUrl": "https://app.acme.com" }
 
 // Response
 {
   "subject": "Welcome, Alex!",
-  "html": "<!DOCTYPE html>..."
+  "html": "<!DOCTYPE html><html>..."
+}`} />
+
+      <H3>Create / update a template</H3>
+      <CodeBlock label="POST /v1/templates" code={`{
+  "slug": "order-shipped",
+  "name": "Order Shipped",
+  "subject": "Your order #{{orderId}} has shipped!",
+  "body_html": "<h1>Hi {{name}},</h1><p>Your order is on its way.</p>",
+  "use_layout": true,
+  "payload_schema_id": "schema-uuid"   // optional — links a Payload Schema
 }`} />
     </DocSection>
   );
@@ -552,17 +629,28 @@ function LogsApiSection() {
   return (
     <DocSection id="logs" title="Send Logs">
       <Para>
-        Every send is logged — success, failure, or unsubscribed. Logs are scoped to the authenticated app.
+        Every send attempt is logged — success, failure, or unsubscribed. Logs are scoped to the authenticated app.
       </Para>
 
-      <CodeBlock label="GET /v1/logs?page=1&limit=20&status=success" code={`{
+      <CodeBlock label="GET /v1/logs  (X-API-KEY required)" code={`// Query params: page, limit (max 100), status, template_slug
+GET /v1/logs?page=1&limit=20&status=failed&template_slug=welcome-email
+
+{
   "logs": [
     {
-      "_id": "uuid",
+      "_id": "log-uuid",
       "template_slug": "welcome-email",
       "recipient": "alex@example.com",
-      "status": "success",        // "success" | "failed" | "unsubscribed"
-      "sent_at": "2026-03-08T10:30:00.000Z"
+      "status": "success",           // "success" | "failed" | "unsubscribed"
+      "error_message": null,         // populated on "failed"
+      "sent_at": "2026-05-14T10:30:00.000Z"
+    },
+    {
+      "_id": "log-uuid2",
+      "template_slug": "_raw",       // raw sends appear here too
+      "recipient": "ops@example.com",
+      "status": "success",
+      "sent_at": "2026-05-14T11:00:00.000Z"
     }
   ],
   "total": 142,
@@ -572,84 +660,366 @@ function LogsApiSection() {
 }`} />
 
       <PropTable rows={[
-        { name: 'page', type: 'number', desc: 'Page number (default: 1).' },
-        { name: 'limit', type: 'number', desc: 'Results per page (default: 20, max: 100).' },
-        { name: 'status', type: 'string', desc: 'Filter by status: success, failed, or unsubscribed.' },
+        { name: 'page',          type: 'number', desc: 'Page number (default: 1).' },
+        { name: 'limit',         type: 'number', desc: 'Results per page (default: 20, max: 100).' },
+        { name: 'status',        type: 'string', desc: 'Filter: success | failed | unsubscribed.' },
         { name: 'template_slug', type: 'string', desc: 'Filter by a specific template slug.' },
       ]} />
     </DocSection>
   );
 }
 
+// ─── SDK Export ───────────────────────────────────────────────────────────────
+
 function SdkExportSection() {
   return (
     <DocSection id="sdk-export" title="SDK Export">
       <Para>
-        The <strong>SDK Export</strong> wizard (<strong>Sidebar → SDK Export</strong>) generates ready-to-use mail client code in 20 languages,
-        pre-populated with your actual apps, templates, API keys, and typed method signatures from your Payload Schemas.
+        The <strong>SDK Export</strong> wizard (<strong>Sidebar → SDK Export</strong>) generates complete, ready-to-drop-in
+        mail client code pre-populated with your actual apps, API keys, template slugs, and typed method
+        signatures derived from your Payload Schemas. You download a ZIP — no manual copy-pasting.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">How it works</h3>
+      <H3>The four steps</H3>
       <div className="space-y-3">
         {[
-          { step: '1', label: 'Choose a language', desc: 'Pick from Full SDK generators (complete service class) or Request Example generators (ready-to-run requests).' },
-          { step: '2', label: 'Select apps & templates', desc: 'Tick which apps and templates to include in the export.' },
-          { step: '3', label: 'Configure', desc: 'Set the service URL and optional custom env var names.' },
-          { step: '4', label: 'Download ZIP', desc: 'Click Download — a ZIP with all generated files is saved instantly in your browser.' },
-        ].map(({ step, label, desc }) => (
-          <div key={step} className="flex gap-4 items-start">
-            <div className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{step}</div>
+          {
+            n: '1',
+            title: 'Choose a language',
+            body: 'Pick TypeScript, Python, Go, PHP, Ruby, Java, C#, Kotlin, Swift, or JavaScript for a Full SDK (config + service + .env). Or choose Shell, HTTP, PowerShell, R, C, C++, Objective-C, OCaml, or Clojure for a set of ready-to-run request examples.',
+          },
+          {
+            n: '2',
+            title: 'Select apps & templates',
+            body: 'Tick which Email Apps and which templates to include. Each app header is a toggle-all shortcut. Only selected items appear in the generated files.',
+          },
+          {
+            n: '3',
+            title: 'Configure',
+            body: 'Set the service base URL (e.g. https://mail.yourapp.com) and optionally rename the env var (default: MAIL_SERVICE_URL). The URL and each app\'s API key are written directly into the .env file.',
+          },
+          {
+            n: '4',
+            title: 'Download ZIP',
+            body: 'Click Download — JSZip assembles the archive client-side and triggers an instant browser download. No data leaves your browser except to the Mail Service API to fetch your app/template data.',
+          },
+        ].map(({ n, title, body }) => (
+          <div key={n} className="flex gap-4 items-start">
+            <div className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{n}</div>
             <div>
-              <div className="text-sm font-semibold text-slate-900">{label}</div>
-              <div className="text-sm text-slate-500">{desc}</div>
+              <div className="text-sm font-semibold text-slate-900">{title}</div>
+              <div className="text-sm text-slate-500 mt-0.5">{body}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <h3 className="text-base font-bold text-slate-900 mt-8">Languages</h3>
+      <H3>Full SDK output — TypeScript example</H3>
+      <Para>
+        A Full SDK export produces three files. Here's what they look like for a "Notify" app
+        with a <em>Welcome Email</em> template that has a Payload Schema, and an <em>Order Confirmation</em> without one.
+      </Para>
+
+      <Collapsible label="mail.config.ts">
+        <CodeBlock code={`/**
+ * mail.config.ts — generated by Mail Service SDK Export
+ * Edit to add apps / templates; run the generator again to regenerate.
+ */
+
+// ─── Apps ────────────────────────────────────────────────────────────────────
+
+export const MAIL_APPS = {
+  notify: {
+    fromEmail: 'hello@notify.acme.com',
+    keyEnv:    'MAIL_KEY_NOTIFY',
+  },
+
+  billing: {
+    fromEmail: 'billing@acme.com',
+    keyEnv:    'MAIL_KEY_BILLING',
+  },
+} as const;
+
+export type MailAppName = keyof typeof MAIL_APPS;
+
+// ─── Templates ───────────────────────────────────────────────────────────────
+
+export const MAIL_TEMPLATES = {
+  welcomeEmail: {
+    /**
+     * Payload:
+     *   user_name  — Display name of the new user
+     *   email      — User's email address
+     *   ctaUrl     — Call-to-action URL (optional)
+     */
+    app:  'notify' as MailAppName,
+    slug: 'welcome-email',
+  },
+
+  orderConfirmation: {
+    app:  'billing' as MailAppName,
+    slug: 'order-confirmation',
+  },
+} as const;
+
+export type MailTemplateName = keyof typeof MAIL_TEMPLATES;`} />
+      </Collapsible>
+
+      <Collapsible label="mail.service.ts">
+        <CodeBlock code={`import { MAIL_APPS, MAIL_TEMPLATES, MailAppName, MailTemplateName } from './mail.config';
+
+const SERVICE_URL = (process.env.MAIL_SERVICE_URL || '').replace(/\/$/, '');
+
+function getKey(app: MailAppName): string {
+  return process.env[MAIL_APPS[app].keyEnv] || '';
+}
+
+function headers(app: MailAppName) {
+  return { 'Content-Type': 'application/json', 'X-API-KEY': getKey(app) };
+}
+
+function isReady(app: MailAppName): boolean {
+  return !!(SERVICE_URL && getKey(app));
+}
+
+async function post(app: MailAppName, path: string, body: object) {
+  if (!isReady(app)) {
+    console.warn(\`[Mail] App "\${app}" not configured\`);
+    return { success: false, error: 'Not configured' };
+  }
+  try {
+    const res = await fetch(\`\${SERVICE_URL}\${path}\`, {
+      method: 'POST', headers: headers(app), body: JSON.stringify(body),
+    });
+    return res.json();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(\`[Mail][\${app}] \${msg}\`);
+    return { success: false, error: msg };
+  }
+}
+
+export class MailService {
+  // Generic send — use typed helpers below when possible
+  static send(template: MailTemplateName, recipient: string, data: Record<string, unknown> = {}) {
+    const t = MAIL_TEMPLATES[template];
+    return post(t.app, '/v1/send', { template_slug: t.slug, recipient, data });
+  }
+
+  static sendRaw(app: MailAppName, params: { subject: string; html: string; recipient: string; fromName?: string }) {
+    return post(app, '/v1/send/raw', { subject: params.subject, html: params.html, recipient: params.recipient, from_name: params.fromName });
+  }
+
+  // ── Typed helpers (generated from Payload Schemas) ───────────────────────
+
+  // welcomeEmail has a schema → fully typed data parameter
+  static sendWelcomeEmail(recipient: string, data: {
+    user_name: string;
+    email: string;
+    ctaUrl?: string;
+  }) {
+    return this.send('welcomeEmail', recipient, data);
+  }
+
+  // orderConfirmation has no schema → generic data parameter
+  static sendOrderConfirmation(recipient: string, data: Record<string, unknown> = {}) {
+    return this.send('orderConfirmation', recipient, data);
+  }
+}`} />
+      </Collapsible>
+
+      <Collapsible label=".env">
+        <CodeBlock code={`MAIL_SERVICE_URL=https://mail.acme.com
+MAIL_KEY_NOTIFY=d8630c73-6ed9-41e3-a4ed-30b6f48e10d9
+MAIL_KEY_BILLING=f2a10c84-7be2-52f4-b5fd-41c7g59f21e0`} />
+      </Collapsible>
+
+      <H3>Using the generated service in your app</H3>
+      <CodeBlock label="Node.js / TypeScript usage" code={`import { MailService } from './mail.service';
+
+// Typed helper — TypeScript will error if you forget user_name or pass a wrong type
+await MailService.sendWelcomeEmail('alex@example.com', {
+  user_name: 'Alex',
+  email:     'alex@example.com',
+  ctaUrl:    'https://app.acme.com/dashboard',
+});
+
+// Generic helper
+await MailService.sendOrderConfirmation('alex@example.com', {
+  order_id: '1042',
+  total:    '$49.00',
+  items:    ['Pro Plan × 1'],
+});
+
+// Raw send from the notify app
+await MailService.sendRaw('notify', {
+  subject:  'Server alert: disk at 92%',
+  html:     '<p>Disk on <strong>prod-1</strong> is at 92%.</p>',
+  recipient:'ops@acme.com',
+  fromName: 'Acme Ops',
+});`} />
+
+      <H3>Full SDK output — Python example</H3>
+      <Collapsible label="mail_service.py">
+        <CodeBlock code={`# mail_service.py — generated by Mail Service SDK Export
+import os, json, urllib.request
+from mail_config import MAIL_APPS, MAIL_TEMPLATES
+
+
+class MailService:
+    def __init__(self):
+        self.service_url = os.environ.get('MAIL_SERVICE_URL', '').rstrip('/')
+
+    def _get_key(self, app: str) -> str:
+        return os.environ.get(MAIL_APPS[app]['key_env'], '')
+
+    def _headers(self, app: str) -> dict:
+        return {'Content-Type': 'application/json', 'X-API-KEY': self._get_key(app)}
+
+    def _post(self, app: str, path: str, body: dict) -> dict:
+        if not (self.service_url and self._get_key(app)):
+            return {'success': False, 'error': 'Not configured'}
+        data = json.dumps(body).encode('utf-8')
+        req = urllib.request.Request(
+            f'{self.service_url}{path}', data=data,
+            headers=self._headers(app), method='POST',
+        )
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
+
+    def send(self, template: str, recipient: str, data: dict = None) -> dict:
+        t = MAIL_TEMPLATES[template]
+        return self._post(t['app'], '/v1/send', {
+            'template_slug': t['slug'], 'recipient': recipient, 'data': data or {},
+        })
+
+    # ── Typed helpers ────────────────────────────────────────────────────────
+
+    # Schema: user_name (str), email (str), ctaUrl (str, optional)
+    def send_welcome_email(self, recipient: str, user_name: str, email: str, ctaUrl: str = None) -> dict:
+        return self.send('welcomeEmail', recipient, {'user_name': user_name, 'email': email, 'ctaUrl': ctaUrl})
+
+    def send_order_confirmation(self, recipient: str, data: dict = None) -> dict:
+        return self.send('orderConfirmation', recipient, data or {})
+
+
+mail = MailService()
+
+# Usage:
+# mail.send_welcome_email('alex@example.com', user_name='Alex', email='alex@example.com')
+# mail.send_order_confirmation('alex@example.com', {'order_id': '1042', 'total': '$49.00'})`} />
+      </Collapsible>
+
+      <H3>Request example output — Shell (curl)</H3>
+      <Para>
+        Request-example generators don't produce a service class. Instead you get a single file with one <InlineCode>curl</InlineCode> call
+        (or equivalent) per selected template, all pre-filled with real slugs, env var references, and example data from your schema.
+      </Para>
+      <Collapsible label="mail_requests.sh">
+        <CodeBlock code={`#!/usr/bin/env bash
+# mail_requests.sh — generated by Mail Service SDK Export
+# Load your .env before running: source .env
+
+SERVICE_URL="\${MAIL_SERVICE_URL}"
+
+# ── Notify ────────────────────────────────────────────────────────
+MAIL_KEY_NOTIFY="\${MAIL_KEY_NOTIFY}"
+
+# Send: Welcome Email
+# Payload fields:
+#   user_name: "Espac"
+#   email: "user@example.com"
+#   ctaUrl: "https://app.acme.com" (optional)
+curl -s -X POST "$SERVICE_URL/v1/send" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-KEY: $MAIL_KEY_NOTIFY" \\
+  -d '{"template_slug": "welcome-email", "recipient": "user@example.com", "data": {"user_name": "Espac", "email": "user@example.com", "ctaUrl": "https://app.acme.com"}}'
+
+# ── Billing ───────────────────────────────────────────────────────
+MAIL_KEY_BILLING="\${MAIL_KEY_BILLING}"
+
+# Send: Order Confirmation
+# Payload fields:
+#   (no schema defined)
+curl -s -X POST "$SERVICE_URL/v1/send" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-KEY: $MAIL_KEY_BILLING" \\
+  -d '{"template_slug": "order-confirmation", "recipient": "user@example.com", "data": {}}'`} />
+      </Collapsible>
+
+      <H3>Typed helpers — with vs without a Payload Schema</H3>
+      <Para>
+        When a template has a Payload Schema linked, the generated helper has explicit typed parameters instead of
+        a generic <InlineCode>data</InlineCode> map. Link schemas in <strong>Payload Schemas</strong> →
+        open a schema → edit, or in the <strong>Template Editor</strong> → Settings panel → Schema.
+      </Para>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs font-semibold text-slate-500 mb-2">Without a schema</div>
+          <CodeBlock code={`// TypeScript
+static sendInvoiceReady(
+  recipient: string,
+  data: Record<string, unknown> = {}
+) { ... }
+
+# Python
+def send_invoice_ready(
+    self, recipient: str,
+    data: dict = None
+) -> dict: ...`} />
+        </div>
+        <div>
+          <div className="text-xs font-semibold text-slate-500 mb-2">With a schema linked</div>
+          <CodeBlock code={`// TypeScript
+static sendInvoiceReady(
+  recipient: string,
+  data: {
+    invoice_id: string;
+    amount: string;
+    due_date?: string;
+  }
+) { ... }
+
+# Python
+def send_invoice_ready(
+    self, recipient: str,
+    invoice_id: str,
+    amount: str,
+    due_date: str = None,
+) -> dict: ...`} />
+        </div>
+      </div>
+
+      <H3>Supported languages</H3>
       <div className="grid grid-cols-2 gap-4">
         <div className="border border-slate-200 rounded-xl p-4">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Full SDK</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Full SDK — 3 files</div>
           <div className="space-y-1 text-sm text-slate-700">
             {['TypeScript', 'JavaScript', 'Python', 'PHP', 'Go', 'Ruby', 'Java', 'C#', 'Kotlin', 'Swift'].map((l) => (
               <div key={l} className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
-                {l}
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />{l}
               </div>
             ))}
           </div>
         </div>
         <div className="border border-slate-200 rounded-xl p-4">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Request Examples</div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Request examples — 2 files</div>
           <div className="space-y-1 text-sm text-slate-700">
             {['Shell (curl)', 'HTTP', 'PowerShell', 'R', 'JSON config', 'C', 'C++', 'Objective-C', 'OCaml', 'Clojure'].map((l) => (
               <div key={l} className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
-                {l}
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />{l}
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">What you get (Full SDK)</h3>
-      <Para>Full SDK generators produce three files per export:</Para>
-      <CodeBlock label="TypeScript example — mail.service.ts (excerpt)" code={`// Typed helper when a Payload Schema is linked to the template
-async sendWelcomeEmail(
-  recipient: string,
-  data: { user_name: string; email: string; ctaUrl?: string }
-): Promise<SendResult> {
-  return this.send(MAIL_CONFIG.notify.templates.welcomeEmail, recipient, data);
-}
-
-// Generic helper when no schema is linked
-async sendOrderConfirmation(recipient: string, data: Record<string, unknown>): Promise<SendResult> {
-  return this.send(MAIL_CONFIG.billing.templates.orderConfirmation, recipient, data);
-}`} />
-
       <InfoBox color="emerald">
-        The generator logic has zero React or browser dependencies — it is structured to be extracted as an <InlineCode>@mail-service/sdk-gen</InlineCode> npm package. See <InlineCode>client/src/generators/README.md</InlineCode> for the extraction guide.
+        The generator logic lives in <InlineCode>client/src/generators/</InlineCode> and has zero React or browser
+        dependencies — pure TypeScript, string-in string-out. It is structured to be published as
+        <InlineCode>@mail-service/sdk-gen</InlineCode>. See <InlineCode>client/src/generators/README.md</InlineCode> for
+        the extraction and npm publish guide.
       </InfoBox>
     </DocSection>
   );
@@ -659,29 +1029,40 @@ function UnsubscribeSection() {
   return (
     <DocSection id="unsubscribe" title="Unsubscribe System">
       <Para>
-        MailService has a built-in unsubscribe system. Every email includes a <InlineCode>List-Unsubscribe</InlineCode> header
-        (if <InlineCode>app_url</InlineCode> or <InlineCode>SERVER_URL</InlineCode> is configured). Clicking it opens a confirmation page and permanently opts the recipient out of that app's emails.
+        MailService has a built-in, RFC-8058-compliant unsubscribe system. Every email automatically gets a
+        <InlineCode>List-Unsubscribe</InlineCode> header when <InlineCode>app_url</InlineCode> or the <InlineCode>SERVER_URL</InlineCode>{' '}
+        env var is set. Clicking the link opens a hosted confirmation page and permanently opts the recipient out of
+        that app's emails.
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">How tokens work</h3>
+      <H3>How tokens work</H3>
       <Para>
-        Tokens are HMAC-SHA256 signatures of <InlineCode>appId|email</InlineCode> using <InlineCode>JWT_SECRET</InlineCode>.
-        They never expire — unsubscribes are permanent. Clicking twice is safe (idempotent upsert).
+        Tokens are HMAC-SHA256 signatures of <InlineCode>appId|email</InlineCode> keyed with <InlineCode>JWT_SECRET</InlineCode>.
+        They never expire — unsubscribes are permanent. Clicking the link twice is idempotent (upsert).
       </Para>
 
-      <h3 className="text-base font-bold text-slate-900 mt-6">Endpoints</h3>
-      <CodeBlock code={`// One-click unsubscribe (RFC 8058 — triggered by email clients)
+      <H3>Endpoints</H3>
+      <CodeBlock code={`// One-click unsubscribe (RFC 8058 — triggered automatically by Gmail, Apple Mail, etc.)
 POST /v1/unsubscribe
-{ "List-Unsubscribe": "One-Click", "recipient-email": "user@example.com" }
+Content-Type: application/x-www-form-urlencoded
+Body: List-Unsubscribe=One-Click
 
-// Browser link (renders confirmation page)
-GET /v1/unsubscribe?token=<hmac>&email=<address>&app=<appId>
+// Browser confirmation page (from email footer link)
+GET /v1/unsubscribe?token=<hmac-sha256>&email=<address>&app=<appId>
 
-// Both endpoints are public — no auth required`} />
+// Both endpoints are fully public — no auth required`} />
+
+      <H3>Pre-send check</H3>
+      <Para>
+        Before every <InlineCode>/v1/send</InlineCode> call, the service checks the <InlineCode>Unsubscribe</InlineCode> collection
+        for that <InlineCode>appId + email</InlineCode> pair. If found, the send is skipped and logged as{' '}
+        <InlineCode>status: "unsubscribed"</InlineCode> — no error is thrown to your backend.
+      </Para>
 
       <InfoBox color="amber">
-        Before every send, the service checks if the recipient is in the <strong>Unsubscribe</strong> collection for that app.
-        If they are, the send is skipped and logged as <InlineCode>unsubscribed</InlineCode>.
+        Set <InlineCode>app_url</InlineCode> in <strong>App Settings → General</strong> to your app's public domain.
+        Without it, <InlineCode>unsubscribeUrl</InlineCode> won't be injected and the <InlineCode>List-Unsubscribe</InlineCode> header won't be added.
+        This will reduce deliverability scores with Gmail and Yahoo.
       </InfoBox>
     </DocSection>
   );
@@ -689,21 +1070,23 @@ GET /v1/unsubscribe?token=<hmac>&email=<address>&app=<appId>
 
 function EnvSection() {
   const vars = [
-    { name: 'JWT_SECRET', required: true, desc: 'Secret for signing JWT tokens and HMAC unsubscribe tokens. Server refuses to start if missing.' },
-    { name: 'MONGODB_URI_DEV', required: true, desc: 'MongoDB connection string for the dev environment.' },
+    { name: 'JWT_SECRET',          required: true,  desc: 'Secret for signing JWT tokens and HMAC unsubscribe tokens. Server refuses to start if missing. Min 32 chars recommended.' },
+    { name: 'MONGODB_URI_DEV',     required: true,  desc: 'MongoDB connection string for the dev environment.' },
     { name: 'MONGODB_URI_STAGING', required: false, desc: 'MongoDB connection string for staging.' },
-    { name: 'MONGODB_URI_PROD', required: false, desc: 'MongoDB connection string for production.' },
-    { name: 'MONGODB_ENV', required: false, desc: 'Which URI to use: dev | staging | prod (default: dev).' },
-    { name: 'SERVER_URL', required: false, desc: 'Public URL of the mail service server. Used as fallback base URL for unsubscribe links.' },
-    { name: 'PORT', required: false, desc: 'HTTP port for the server (default: 3001).' },
-    { name: 'SEED_ADMIN_EMAIL', required: false, desc: 'Email for the seeded admin user (default: admin@example.com).' },
-    { name: 'SEED_ADMIN_PASSWORD', required: false, desc: 'Password for the seeded admin user (default: changeme123).' },
+    { name: 'MONGODB_URI_PROD',    required: false, desc: 'MongoDB connection string for production.' },
+    { name: 'MONGODB_ENV',         required: false, desc: 'Which URI to use: dev | staging | prod (default: dev).' },
+    { name: 'SERVER_URL',          required: false, desc: 'Public URL of the mail service. Used as fallback base URL for unsubscribe links if app_url is not set on an app.' },
+    { name: 'PORT',                required: false, desc: 'HTTP port for the server (default: 3001).' },
+    { name: 'SEED_ADMIN_EMAIL',    required: false, desc: 'Email for the seeded superadmin (default: admin@example.com).' },
+    { name: 'SEED_ADMIN_PASSWORD', required: false, desc: 'Password for the seeded superadmin (default: changeme123). Change immediately after first login.' },
   ];
 
   return (
     <DocSection id="environment" title="Environment Variables">
       <Para>
-        Add these to your <InlineCode>.env.dev</InlineCode>, <InlineCode>.env.staging</InlineCode>, or <InlineCode>.env.prod</InlineCode> file in the <InlineCode>server/</InlineCode> directory.
+        Create <InlineCode>server/.env.dev</InlineCode>, <InlineCode>server/.env.staging</InlineCode>, and{' '}
+        <InlineCode>server/.env.prod</InlineCode>. The npm scripts load the right file automatically via <InlineCode>dotenv-cli</InlineCode>.
+        SMTP credentials go in App Settings inside the dashboard — not in env vars (each app has its own SMTP).
       </Para>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
@@ -721,13 +1104,21 @@ function EnvSection() {
         ))}
       </div>
 
-      <CodeBlock label="server/.env.dev (example)" code={`JWT_SECRET=supersecretkey-change-me-in-production
+      <CodeBlock label="server/.env.dev" code={`# Generate JWT_SECRET:
+# node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+JWT_SECRET=a3f8c1d9e2b7...long-random-string...
+
 MONGODB_URI_DEV=mongodb://localhost:27017/mail-service-dev
 MONGODB_ENV=dev
-SERVER_URL=https://api.yourdomain.com
+SERVER_URL=https://mail.yourdomain.com
 PORT=3001
+
+# Seed script defaults — change before running in production
 SEED_ADMIN_EMAIL=admin@example.com
 SEED_ADMIN_PASSWORD=changeme123`} />
+
+      <H3>Generating JWT_SECRET</H3>
+      <CodeBlock label="Terminal" code={`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`} />
 
       <div className="flex flex-wrap gap-3 pt-4">
         <Link to="/register"
