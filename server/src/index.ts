@@ -15,6 +15,9 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Trust the first hop from Traefik/load-balancer so req.ip = real client IP
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
 app.use(express.json({ limit: '10mb' }));

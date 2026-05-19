@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import client from '../api/client';
-import type { Organization, User } from '../types';
+import type { Organization, OrgLlmConfig, LlmProvider, User } from '../types';
 
 interface OrgState {
   org: Organization | null;
   members: User[];
+  orgLlm: OrgLlmConfig | null;
   loading: boolean;
   error: string | null;
 
@@ -14,12 +15,16 @@ interface OrgState {
   inviteMember: (email: string, is_org_admin?: boolean) => Promise<User>;
   updateMember: (userId: string, is_org_admin: boolean) => Promise<User>;
   removeMember: (userId: string) => Promise<void>;
+  fetchOrgLlm: () => Promise<void>;
+  saveOrgLlm: (update: Partial<OrgLlmConfig> & { api_key?: string; provider?: LlmProvider }) => Promise<void>;
+  testOrgLlm: () => Promise<string>;
   clearOrg: () => void;
 }
 
 export const useOrgStore = create<OrgState>((set) => ({
   org: null,
   members: [],
+  orgLlm: null,
   loading: false,
   error: null,
 
@@ -61,5 +66,21 @@ export const useOrgStore = create<OrgState>((set) => ({
     set((s) => ({ members: s.members.filter((m) => m._id !== userId) }));
   },
 
-  clearOrg: () => set({ org: null, members: [], error: null }),
+  fetchOrgLlm: async () => {
+    const { data } = await client.get<OrgLlmConfig>('/orgs/me/llm');
+    set({ orgLlm: data });
+  },
+
+  saveOrgLlm: async (update) => {
+    const { data } = await client.put<OrgLlmConfig>('/orgs/me/llm', update);
+    set({ orgLlm: data });
+  },
+
+  testOrgLlm: async () => {
+    const { data } = await client.post<{ ok: boolean; response?: string; error?: string }>('/orgs/me/llm/test');
+    if (!data.ok) throw new Error(data.error ?? 'Test failed');
+    return data.response ?? 'OK';
+  },
+
+  clearOrg: () => set({ org: null, members: [], orgLlm: null, error: null }),
 }));

@@ -51,7 +51,11 @@ adminRouter.get('/orgs', async (_req: Request, res: Response): Promise<void> => 
       { $group: { _id: '$org_id', count: { $sum: 1 } } },
     ]);
     const countMap = Object.fromEntries(memberCounts.map((m) => [m._id, m.count]));
-    res.json(orgs.map((o) => ({ ...o, member_count: countMap[o._id] ?? 0 })));
+    res.json(orgs.map(({ llm, ...o }) => ({
+      ...o,
+      llm: llm ? { provider: llm.provider, model: llm.model, enabled: llm.enabled, api_key_set: !!llm.api_key } : undefined,
+      member_count: countMap[o._id] ?? 0,
+    })));
   } catch {
     res.status(500).json({ error: 'Failed to fetch organisations' });
   }

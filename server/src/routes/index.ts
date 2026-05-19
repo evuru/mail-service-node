@@ -12,14 +12,15 @@ import { unsubscribeRouter } from './unsubscribe';
 import { platformRouter } from './platform';
 import { aiRouter } from './ai';
 import { orgsRouter } from './orgs';
-import { apiLimiter } from '../middleware/rateLimit';
+import { apiLimiter, authLimiter, sendLimiter, aiLimiter } from '../middleware/rateLimit';
 
 export const apiRoutes = Router();
 
+// Broad limiter on everything — tighter limiters below override per-route
 apiRoutes.use(apiLimiter);
 
-// Auth (no API key required)
-apiRoutes.use('/auth', authRouter);
+// Auth — strict brute-force protection
+apiRoutes.use('/auth', authLimiter, authRouter);
 
 // Unsubscribe (public — embedded in email links)
 apiRoutes.use('/unsubscribe', unsubscribeRouter);
@@ -39,11 +40,11 @@ apiRoutes.use('/admin', adminRouter);
 // Platform config (JWT + superadmin — nested under admin)
 apiRoutes.use('/admin/platform', platformRouter);
 
-// AI generation (JWT + API key — role-checked per request)
-apiRoutes.use('/ai', aiRouter);
+// AI generation — expensive LLM calls, tighter limit
+apiRoutes.use('/ai', aiLimiter, aiRouter);
 
-// App-scoped routes (API key auth via requireApiKey inside each router)
-apiRoutes.use('/send', sendRouter);
+// Send routes — per-minute cap to protect SMTP provider quotas
+apiRoutes.use('/send', sendLimiter, sendRouter);
 apiRoutes.use('/templates', templatesRouter);
 apiRoutes.use('/logs', logsRouter);
 apiRoutes.use('/preview', previewRouter);

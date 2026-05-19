@@ -2,11 +2,21 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { Organization, toSlug } from '../models/Organization';
 import { User } from '../models/User';
+import type { LlmProvider } from '../models/PlatformConfig';
+import { callLlm } from '../services/llmService';
 
 export const orgsRouter = Router();
 
 // All org routes require JWT
 orgsRouter.use(requireAuth);
+
+// Strip llm.api_key before sending org to any client.
+// The raw key is server-side only — callers get api_key_set: boolean instead.
+function safeOrg(org: InstanceType<typeof Organization>) {
+  const { llm, ...rest } = org.toObject() as unknown as { llm: { api_key: string; [k: string]: unknown }; [k: string]: unknown };
+  const { api_key, ...llmRest } = llm ?? {};
+  return { ...rest, llm: { ...llmRest, api_key_set: !!api_key } };
+}
 
 // ─── Create org ───────────────────────────────────────────────────────────────
 
@@ -31,7 +41,7 @@ orgsRouter.post('/', async (req: Request, res: Response): Promise<void> => {
     user.org_id = org._id;
     user.is_org_admin = true;
     await user.save();
-    res.status(201).json(org);
+    res.status(201).json(safeOrg(org));
   } catch {
     res.status(500).json({ error: 'Failed to create organisation' });
   }
@@ -48,7 +58,7 @@ orgsRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
   try {
     const org = await Organization.findById(user.org_id);
     if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
-    res.json(org);
+    res.json(safeOrg(org));
   } catch {
     res.status(500).json({ error: 'Failed to fetch organisation' });
   }
@@ -70,7 +80,7 @@ orgsRouter.put('/me', async (req: Request, res: Response): Promise<void> => {
     if (name?.trim()) org.name = name.trim();
     if (logo_base64 !== undefined) org.logo_base64 = logo_base64;
     await org.save();
-    res.json(org);
+    res.json(safeOrg(org));
   } catch {
     res.status(500).json({ error: 'Failed to update organisation' });
   }
@@ -161,6 +171,80 @@ orgsRouter.delete('/me/members/:userId', async (req: Request, res: Response): Pr
   }
 });
 
+// ─── Get org LLM config ───────────────────────────────────────────────────────
+
+orgsRouter.get('/me/llm', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can view AI configuration' });
+    return;
+  }
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+    const { provider, base_url, model, enabled, api_key } = org.llm;
+    res.json({ provider, base_url, model, enabled, api_key_set: !!api_key });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch AI configuration' });
+  }
+});
+
+// ─── Update org LLM config ────────────────────────────────────────────────────
+
+orgsRouter.put('/me/llm', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can update AI configuration' });
+    return;
+  }
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+
+    const { provider, api_key, base_url, model, enabled } = req.body as {
+      provider?: LlmProvider;
+      api_key?: string;
+      base_url?: string;
+      model?: string;
+      enabled?: boolean;
+    };
+
+    if (provider !== undefined) org.llm.provider = provider;
+    if (api_key !== undefined && api_key !== '') org.llm.api_key = api_key;
+    if (base_url !== undefined) org.llm.base_url = base_url;
+    if (model !== undefined) org.llm.model = model;
+    if (enabled !== undefined) org.llm.enabled = Boolean(enabled);
+
+    await org.save();
+    const { provider: p, base_url: bu, model: m, enabled: en, api_key: ak } = org.llm;
+    res.json({ provider: p, base_url: bu, model: m, enabled: en, api_key_set: !!ak });
+  } catch {
+    res.status(500).json({ error: 'Failed to update AI configuration' });
+  }
+});
+
+// ─── Test org LLM config ──────────────────────────────────────────────────────
+
+orgsRouter.post('/me/llm/test', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can test AI configuration' });
+    return;
+  }
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+    if (!org.llm.enabled || !org.llm.api_key) {
+      res.status(400).json({ error: 'Org AI is not configured or not enabled' });
+      return;
+    }
+    const result = await callLlm(org.llm, 'You are a helpful assistant.', 'Reply with exactly: "OK"');
+    res.json({ ok: true, response: result.trim() });
+  } catch (err) {
+    res.status(502).json({ ok: false, error: (err as Error).message });
+  }
+});
+
 // ─── Join org by invite code / slug (self-service) ───────────────────────────
 // Superadmin can assign any user to any org
 
@@ -177,7 +261,7 @@ orgsRouter.post('/join', async (req: Request, res: Response): Promise<void> => {
     }
     user.org_id = org._id;
     await user.save();
-    res.json(org);
+    res.json(safeOrg(org));
   } catch {
     res.status(500).json({ error: 'Failed to join organisation' });
   }

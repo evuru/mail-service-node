@@ -1,5 +1,14 @@
 import { Schema, model, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import type { LlmProvider } from './PlatformConfig';
+
+export interface IOrgLlm {
+  provider: LlmProvider;
+  api_key: string;   // stored server-side only — never returned to client
+  base_url: string;  // required for ollama / openai-compatible
+  model: string;
+  enabled: boolean;
+}
 
 export interface IOrganization extends Document<string> {
   _id: string;
@@ -7,6 +16,7 @@ export interface IOrganization extends Document<string> {
   slug: string;
   logo_base64?: string;
   created_by: string;
+  llm: IOrgLlm;
   created_at: Date;
   updated_at: Date;
 }
@@ -18,6 +28,17 @@ const OrganizationSchema = new Schema<IOrganization>(
     slug:        { type: String, required: true, unique: true, lowercase: true, trim: true },
     logo_base64: { type: String, default: '' },
     created_by:  { type: String, required: true, ref: 'User' },
+    llm: {
+      provider: {
+        type: String,
+        enum: ['openai', 'anthropic', 'gemini', 'ollama', 'openai-compatible'],
+        default: 'gemini',
+      },
+      api_key:  { type: String, default: '' },
+      base_url: { type: String, default: '' },
+      model:    { type: String, default: '' },
+      enabled:  { type: Boolean, default: false },
+    },
   },
   {
     _id: false,

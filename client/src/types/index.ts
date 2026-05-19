@@ -92,6 +92,7 @@ export interface Organization {
   slug: string;
   logo_base64?: string;
   created_by: string;
+  llm?: OrgLlmConfig | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +104,16 @@ export type LlmProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'openai
 export interface PlatformLlmConfig {
   provider: LlmProvider;
   api_key_set: boolean;   // true if an api_key is stored server-side
+  base_url: string;
+  model: string;
+  enabled: boolean;
+}
+
+// Org-level LLM config — same shape as platform, but scoped to the org.
+// api_key is never returned; api_key_set indicates whether one is stored.
+export interface OrgLlmConfig {
+  provider: LlmProvider;
+  api_key_set: boolean;
   base_url: string;
   model: string;
   enabled: boolean;

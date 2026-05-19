@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireApiKey } from '../middleware/auth';
 import { PlatformConfig } from '../models/PlatformConfig';
+import { Organization } from '../models/Organization';
 import { AppMember } from '../models/AppMember';
-import type { IPlatformConfig } from '../models/PlatformConfig';
+import { callLlm, type LlmConfig } from '../services/llmService';
 
 export const aiRouter = Router();
 
@@ -14,129 +15,63 @@ function hasRole(userRole: string, minRole: string): boolean {
   return (roleRank[userRole] ?? 0) >= (roleRank[minRole] ?? 0);
 }
 
-// ─── LLM caller ──────────────────────────────────────────────────────────────
+// ─── Active LLM config resolver ──────────────────────────────────────────────
+// Priority: org config (if enabled + key set) → platform config (if enabled)
 
-async function callLlm(cfg: IPlatformConfig['llm'], systemPrompt: string, userPrompt: string): Promise<string> {
-  const { provider, api_key, base_url, model } = cfg;
+async function getActiveLlmConfig(req: Request): Promise<LlmConfig | null> {
+  const user = req.user!;
 
-  if (provider === 'gemini') {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${api_key}`;
-    const body = {
-      contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
-    };
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string; status?: string } };
-      const msg = errBody?.error?.message ?? `HTTP ${res.status}`;
-      const status = errBody?.error?.status ?? '';
-      if (res.status === 429) throw new Error(`Gemini rate limit / quota exceeded (${status || 'RESOURCE_EXHAUSTED'}): ${msg}. Check your quota at https://aistudio.google.com or switch to a model with a higher free limit (e.g. gemini-2.0-flash-lite).`);
-      throw new Error(`Gemini API error ${res.status} (${status}): ${msg}`);
+  // 1. Org-level config
+  if (user.org_id) {
+    const org = await Organization.findById(user.org_id);
+    if (org?.llm?.enabled && org.llm.api_key) {
+      return org.llm as LlmConfig;
     }
-    const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   }
 
-  if (provider === 'openai' || provider === 'openai-compatible') {
-    const endpoint = base_url ? `${base_url.replace(/\/$/, '')}/chat/completions` : 'https://api.openai.com/v1/chat/completions';
-    const body = {
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userPrompt },
-      ],
-    };
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api_key}` },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      throw new Error(`OpenAI API error ${res.status}: ${errBody?.error?.message ?? 'Unknown error'}`);
-    }
-    const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-    return data.choices?.[0]?.message?.content ?? '';
+  // 2. Platform fallback
+  const platform = await PlatformConfig.findOne();
+  if (platform?.llm?.enabled) {
+    return platform.llm;
   }
 
-  if (provider === 'anthropic') {
-    const body = {
-      model,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    };
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': api_key,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      throw new Error(`Anthropic API error ${res.status}: ${errBody?.error?.message ?? 'Unknown error'}`);
-    }
-    const data = await res.json() as { content?: { type: string; text?: string }[] };
-    return data.content?.find((b) => b.type === 'text')?.text ?? '';
-  }
-
-  if (provider === 'ollama') {
-    const endpoint = `${(base_url || 'http://localhost:11434').replace(/\/$/, '')}/api/chat`;
-    const body = {
-      model,
-      stream: false,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userPrompt },
-      ],
-    };
-    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error(`Ollama API error: ${res.status}`);
-    const data = await res.json() as { message?: { content?: string } };
-    return data.message?.content ?? '';
-  }
-
-  throw new Error(`Unsupported provider: ${provider}`);
+  return null;
 }
 
-// ─── Shared access guard (JWT + API key required, checks llm_enabled + role) ─
+// ─── Shared access guard (JWT + API key, checks llm_enabled + role) ──────────
+// Returns the active LLM config on success, null on failure (response already sent).
 
-async function checkLlmAccess(req: Request, res: Response): Promise<boolean> {
-  const cfg = await PlatformConfig.findOne();
-  if (!cfg?.llm?.enabled) {
-    res.status(403).json({ error: 'AI features are not enabled on this platform' });
-    return false;
+async function checkLlmAccess(req: Request, res: Response): Promise<LlmConfig | null> {
+  const cfg = await getActiveLlmConfig(req);
+  if (!cfg) {
+    res.status(403).json({ error: 'AI features are not enabled (configure at platform or org level)' });
+    return null;
   }
 
   const app = req.emailApp!;
   if (!app.llm_enabled) {
     res.status(403).json({ error: 'AI features are not enabled for this app' });
-    return false;
+    return null;
   }
 
   const membership = await AppMember.findOne({ app_id: app._id, user_id: req.user!._id });
   const userRole = membership?.role ?? 'viewer';
   if (!hasRole(userRole, app.llm_min_role)) {
     res.status(403).json({ error: `Your role (${userRole}) does not have access to AI features in this app` });
-    return false;
+    return null;
   }
 
-  return true;
+  return cfg;
 }
 
 // ─── POST /ai/generate ───────────────────────────────────────────────────────
-// Requires: JWT + X-API-KEY
 
 aiRouter.post('/generate', requireAuth, requireApiKey, async (req: Request, res: Response): Promise<void> => {
-  const allowed = await checkLlmAccess(req, res);
-  if (!allowed) return;
+  const cfg = await checkLlmAccess(req, res);
+  if (!cfg) return;
 
   const { prompt, type = 'template' } = req.body as { prompt: string; type?: 'template' | 'subject' };
   if (!prompt) { res.status(400).json({ error: 'prompt is required' }); return; }
-
-  const cfg = await PlatformConfig.findOne();
 
   try {
     const systemPrompt = type === 'subject'
@@ -148,35 +83,28 @@ Rules:
 - Use {{unsubscribeUrl}} in a footer if appropriate, wrapped in {{#if unsubscribeUrl}}...{{/if}}
 - Return ONLY the HTML — no explanation, no markdown code fences`;
 
-    const result = await callLlm(cfg!.llm, systemPrompt, prompt);
-
-    if (type === 'subject') {
-      res.json({ subject: result.trim() });
-    } else {
-      res.json({ html: result.trim() });
-    }
+    const result = await callLlm(cfg, systemPrompt, prompt);
+    res.json(type === 'subject' ? { subject: result.trim() } : { html: result.trim() });
   } catch (err) {
     res.status(502).json({ error: (err as Error).message ?? 'LLM call failed' });
   }
 });
 
 // ─── POST /ai/improve ────────────────────────────────────────────────────────
-// Requires: JWT + X-API-KEY
 
 aiRouter.post('/improve', requireAuth, requireApiKey, async (req: Request, res: Response): Promise<void> => {
-  const allowed = await checkLlmAccess(req, res);
-  if (!allowed) return;
+  const cfg = await checkLlmAccess(req, res);
+  if (!cfg) return;
 
   const { html, instruction } = req.body as { html: string; instruction: string };
   if (!html || !instruction) { res.status(400).json({ error: 'html and instruction are required' }); return; }
 
-  const cfg = await PlatformConfig.findOne();
-
   try {
-    const systemPrompt = `You are an expert HTML email developer. You will receive an HTML email snippet and an instruction. Apply the instruction and return ONLY the improved HTML — no explanation, no markdown code fences, no surrounding text.`;
-    const userPrompt = `Instruction: ${instruction}\n\nHTML:\n${html}`;
-
-    const result = await callLlm(cfg!.llm, systemPrompt, userPrompt);
+    const result = await callLlm(
+      cfg,
+      'You are an expert HTML email developer. You will receive an HTML email snippet and an instruction. Apply the instruction and return ONLY the improved HTML — no explanation, no markdown code fences, no surrounding text.',
+      `Instruction: ${instruction}\n\nHTML:\n${html}`,
+    );
     res.json({ html: result.trim() });
   } catch (err) {
     res.status(502).json({ error: (err as Error).message ?? 'LLM call failed' });
@@ -184,12 +112,13 @@ aiRouter.post('/improve', requireAuth, requireApiKey, async (req: Request, res: 
 });
 
 // ─── POST /ai/schema ─────────────────────────────────────────────────────────
-// Requires: JWT only (schemas are not app-scoped)
+// Requires JWT only (schemas are not app-scoped).
+// Uses org config if available, otherwise platform config.
 
 aiRouter.post('/schema', requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const cfg = await PlatformConfig.findOne();
-  if (!cfg?.llm?.enabled) {
-    res.status(403).json({ error: 'AI features are not enabled on this platform' });
+  const cfg = await getActiveLlmConfig(req);
+  if (!cfg) {
+    res.status(403).json({ error: 'AI features are not enabled (configure at platform or org level)' });
     return;
   }
 
@@ -214,19 +143,16 @@ Return ONLY a valid JSON object with this exact shape — no explanation, no mar
   ]
 }`;
 
-    const result = await callLlm(cfg.llm, systemPrompt, description);
-
-    // Strip markdown fences if the model wraps in ```json ... ```
+    const result = await callLlm(cfg, systemPrompt, description);
     const cleaned = result.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
-    const parsed = JSON.parse(cleaned);
-    res.json(parsed);
+    res.json(JSON.parse(cleaned));
   } catch (err) {
     res.status(502).json({ error: (err as Error).message ?? 'LLM call failed' });
   }
 });
 
 // ─── POST /ai/test ───────────────────────────────────────────────────────────
-// Superadmin: test the configured LLM connection
+// Superadmin: tests platform config.
 
 aiRouter.post('/test', requireAuth, async (req: Request, res: Response): Promise<void> => {
   if (req.user?.role !== 'superadmin') {

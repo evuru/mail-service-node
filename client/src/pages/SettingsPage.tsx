@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Building2, UserPlus, Trash2, Shield } from 'lucide-react';
+import { Camera, Building2, UserPlus, Trash2, Shield, Cpu, CheckCircle, XCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useOrgStore } from '../store/orgStore';
 import { Header } from '../components/Header';
 import { Badge } from '../components/Badge';
 import client from '../api/client';
-import type { User } from '../types';
+import type { User, LlmProvider } from '../types';
 
 interface HealthData {
   status: string;
@@ -41,13 +41,23 @@ export function SettingsPage() {
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Org
-  const { org, members, fetchOrg, fetchMembers, updateOrg, inviteMember, updateMember, removeMember } = useOrgStore();
+  const { org, members, orgLlm, fetchOrg, fetchMembers, updateOrg, inviteMember, updateMember, removeMember, fetchOrgLlm, saveOrgLlm, testOrgLlm } = useOrgStore();
   const [orgName, setOrgName] = useState('');
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgMsg, setOrgMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAdmin, setInviteAdmin] = useState(false);
   const [inviting, setInviting] = useState(false);
+
+  // Org LLM
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>('gemini');
+  const [llmModel, setLlmModel] = useState('');
+  const [llmBaseUrl, setLlmBaseUrl] = useState('');
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [llmSaving, setLlmSaving] = useState(false);
+  const [llmTesting, setLlmTesting] = useState(false);
+  const [llmMsg, setLlmMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     fetch('/health')
@@ -62,6 +72,19 @@ export function SettingsPage() {
       void fetchMembers();
     }
   }, [user?.org_id, fetchOrg, fetchMembers]);
+
+  useEffect(() => {
+    if (user?.is_org_admin && user.org_id) void fetchOrgLlm();
+  }, [user?.is_org_admin, user?.org_id, fetchOrgLlm]);
+
+  useEffect(() => {
+    if (orgLlm) {
+      setLlmProvider(orgLlm.provider);
+      setLlmModel(orgLlm.model);
+      setLlmBaseUrl(orgLlm.base_url);
+      setLlmEnabled(orgLlm.enabled);
+    }
+  }, [orgLlm]);
 
   useEffect(() => {
     if (org) setOrgName(org.name);
@@ -155,6 +178,37 @@ export function SettingsPage() {
       setOrgMsg({ ok: false, text: (err as Error).message });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const saveLlm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLlmSaving(true);
+    setLlmMsg(null);
+    try {
+      const payload: Record<string, unknown> = { provider: llmProvider, model: llmModel, base_url: llmBaseUrl, enabled: llmEnabled };
+      if (llmApiKey) payload.api_key = llmApiKey;
+      await saveOrgLlm(payload as Parameters<typeof saveOrgLlm>[0]);
+      setLlmApiKey('');
+      setLlmMsg({ ok: true, text: 'AI configuration saved!' });
+      setTimeout(() => setLlmMsg(null), 2500);
+    } catch (err) {
+      setLlmMsg({ ok: false, text: (err as Error).message });
+    } finally {
+      setLlmSaving(false);
+    }
+  };
+
+  const handleTestLlm = async () => {
+    setLlmTesting(true);
+    setLlmMsg(null);
+    try {
+      const reply = await testOrgLlm();
+      setLlmMsg({ ok: true, text: `Connection OK — model replied: "${reply}"` });
+    } catch (err) {
+      setLlmMsg({ ok: false, text: (err as Error).message });
+    } finally {
+      setLlmTesting(false);
     }
   };
 
@@ -406,6 +460,117 @@ export function SettingsPage() {
                   </form>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Org AI Configuration — org admins only */}
+          {user?.is_org_admin && user.org_id && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-gray-500" />
+                Organisation AI
+              </h2>
+              <p className="text-xs text-gray-400 mb-4">
+                Set your own LLM API key here. When configured, it overrides the platform default for all members of your org.
+              </p>
+
+              {llmMsg && (
+                <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm mb-3 ${llmMsg.ok ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-600'}`}>
+                  {llmMsg.ok ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <XCircle className="w-4 h-4 flex-shrink-0" />}
+                  {llmMsg.text}
+                </div>
+              )}
+
+              <form onSubmit={saveLlm} className="space-y-3">
+                {/* Enable toggle */}
+                <label className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Enable org AI</span>
+                  <button
+                    type="button"
+                    onClick={() => setLlmEnabled((v) => !v)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${llmEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${llmEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </button>
+                </label>
+
+                {/* Provider */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                  <select
+                    value={llmProvider}
+                    onChange={(e) => setLlmProvider(e.target.value as LlmProvider)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="gemini">Google Gemini</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="ollama">Ollama (self-hosted)</option>
+                    <option value="openai-compatible">OpenAI-compatible</option>
+                  </select>
+                </div>
+
+                {/* Model */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input
+                    value={llmModel}
+                    onChange={(e) => setLlmModel(e.target.value)}
+                    placeholder={llmProvider === 'gemini' ? 'gemini-2.0-flash' : llmProvider === 'openai' ? 'gpt-4o' : llmProvider === 'anthropic' ? 'claude-sonnet-4-6' : 'model-name'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Base URL — only for ollama / openai-compatible */}
+                {(llmProvider === 'ollama' || llmProvider === 'openai-compatible') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                    <input
+                      value={llmBaseUrl}
+                      onChange={(e) => setLlmBaseUrl(e.target.value)}
+                      placeholder={llmProvider === 'ollama' ? 'http://localhost:11434' : 'https://your-api.example.com/v1'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* API key */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Key
+                    {orgLlm?.api_key_set && (
+                      <span className="ml-2 text-xs text-green-600 font-normal">Key is set ✓</span>
+                    )}
+                  </label>
+                  <input
+                    type="password"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
+                    placeholder={orgLlm?.api_key_set ? 'Leave blank to keep current key' : 'Paste your API key'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={llmSaving}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {llmSaving ? 'Saving…' : 'Save AI config'}
+                  </button>
+                  {orgLlm?.api_key_set && (
+                    <button
+                      type="button"
+                      onClick={handleTestLlm}
+                      disabled={llmTesting}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                    >
+                      {llmTesting ? 'Testing…' : 'Test connection'}
+                    </button>
+                  )}
+                </div>
+              </form>
             </div>
           )}
 
