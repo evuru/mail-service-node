@@ -106,19 +106,16 @@ export default function SDKExportPage() {
   const [activeFile, setActiveFile] = useState(0);
   const [generating, setGenerating] = useState(false);
 
-  // Load templates for all apps on mount
   useEffect(() => {
     if (!apps.length) return;
     setLoadingTemplates(true);
     Promise.all(
       apps.map(async (app) => {
         const templates = await fetchTemplatesForApp(app.api_key).catch(() => [] as Template[]);
-        // Only app-specific, non-layout templates
         return [app._id, templates.filter((t) => t.app_id === app._id && !t.is_layout)] as const;
       }),
     ).then((pairs) => {
       setAllTemplates(Object.fromEntries(pairs));
-      // Init selections
       setState((s) => ({
         ...s,
         appSelections: Object.fromEntries(
@@ -267,10 +264,10 @@ export default function SDKExportPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
-          <Package className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">SDK Export</h1>
+          <Package className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">SDK Export</h1>
         </div>
-        <p className="text-gray-500 text-sm">
+        <p className="text-[var(--text-muted)] text-sm">
           Generate a ready-to-use mail client in your language of choice — pre-populated with your apps, templates, and API keys.
         </p>
       </div>
@@ -282,10 +279,10 @@ export default function SDKExportPage() {
             <button
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 i === step
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-brand-600 text-white'
                   : i < step
-                    ? 'bg-green-100 text-green-700 cursor-pointer hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-400 cursor-default'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-pointer hover:bg-emerald-200 dark:hover:bg-emerald-900/40'
+                    : 'bg-[var(--surface-raised)] text-[var(--text-muted)] cursor-default'
               }`}
               onClick={() => i < step && setStep(i)}
               disabled={i > step}
@@ -293,7 +290,7 @@ export default function SDKExportPage() {
               {i < step ? <Check className="w-3 h-3" /> : <span>{i + 1}</span>}
               {label}
             </button>
-            {i < STEPS.length - 1 && <ChevronRight className="w-4 h-4 text-gray-300" />}
+            {i < STEPS.length - 1 && <ChevronRight className="w-4 h-4 text-[var(--border)]" />}
           </div>
         ))}
       </div>
@@ -301,10 +298,10 @@ export default function SDKExportPage() {
       {/* ── Step 0: Language ─────────────────────────────────────────────── */}
       {step === 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
             <Layers className="w-4 h-4" /> Full SDK
           </h2>
-          <p className="text-xs text-gray-400 mb-3">Generates a config file, service class, and .env</p>
+          <p className="text-xs text-[var(--text-muted)] mb-3">Generates a config file, service class, and .env</p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
             {fullSdk.map((g) => (
               <button
@@ -312,8 +309,8 @@ export default function SDKExportPage() {
                 onClick={() => setLangId(g.id)}
                 className={`p-3 rounded-xl border-2 text-center transition-all ${
                   langId === g.id
-                    ? 'border-blue-500 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm'
+                    : 'border-[var(--border)] hover:border-brand-300 hover:bg-[var(--surface-raised)]'
                 }`}
               >
                 {(() => {
@@ -322,15 +319,15 @@ export default function SDKExportPage() {
                     ? <lang.Icon className="w-6 h-6 mx-auto mb-1.5" style={{ color: langId === g.id ? lang.color : '#9CA3AF' }} />
                     : <div className="w-6 h-6 rounded mx-auto mb-1.5" style={{ backgroundColor: g.color }} />;
                 })()}
-                <div className="text-xs font-medium text-gray-800">{g.name}</div>
+                <div className="text-xs font-medium text-[var(--text-primary)]">{g.name}</div>
               </button>
             ))}
           </div>
 
-          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
             <Layers className="w-4 h-4" /> Request Examples
           </h2>
-          <p className="text-xs text-gray-400 mb-3">Generates example HTTP requests + .env (no service class)</p>
+          <p className="text-xs text-[var(--text-muted)] mb-3">Generates example HTTP requests + .env (no service class)</p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
             {reqExamples.map((g) => (
               <button
@@ -338,8 +335,8 @@ export default function SDKExportPage() {
                 onClick={() => setLangId(g.id)}
                 className={`p-3 rounded-xl border-2 text-center transition-all ${
                   langId === g.id
-                    ? 'border-blue-500 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm'
+                    : 'border-[var(--border)] hover:border-brand-300 hover:bg-[var(--surface-raised)]'
                 }`}
               >
                 {(() => {
@@ -348,16 +345,13 @@ export default function SDKExportPage() {
                     ? <lang.Icon className="w-6 h-6 mx-auto mb-1.5" style={{ color: langId === g.id ? lang.color : '#9CA3AF' }} />
                     : <div className="w-6 h-6 rounded mx-auto mb-1.5" style={{ backgroundColor: g.color }} />;
                 })()}
-                <div className="text-xs font-medium text-gray-800">{g.name}</div>
+                <div className="text-xs font-medium text-[var(--text-primary)]">{g.name}</div>
               </button>
             ))}
           </div>
 
           <div className="flex justify-end">
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-            >
+            <button onClick={() => setStep(1)} className="btn-primary">
               Next: Select Apps & Templates <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -368,33 +362,33 @@ export default function SDKExportPage() {
       {step === 1 && (
         <div className="flex flex-col" style={{ minHeight: 0 }}>
           {loadingTemplates ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
+              <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-3" />
               <span className="text-sm">Loading templates…</span>
             </div>
           ) : (
             <>
               {/* Toolbar */}
-              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border)]">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">
                     {selectedAppCount} app{selectedAppCount !== 1 ? 's' : ''}
                   </span>
-                  <span className="text-gray-300">·</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-[var(--border)]">·</span>
+                  <span className="text-sm text-[var(--text-muted)]">
                     {selectedTemplateCount} template{selectedTemplateCount !== 1 ? 's' : ''} selected
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => apps.forEach((a) => { if (!state.appSelections[a._id]?.selected) toggleApp(a._id); (allTemplates[a._id] ?? []).forEach((t) => { if (!state.appSelections[a._id]?.templates[t.slug]) toggleTemplate(a._id, t.slug); }); })}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50"
+                    className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 font-medium px-2 py-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/20"
                   >
                     Select all
                   </button>
                   <button
                     onClick={() => apps.forEach((a) => { if (state.appSelections[a._id]?.selected) toggleApp(a._id); })}
-                    className="text-xs text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-100"
+                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] font-medium px-2 py-1 rounded hover:bg-[var(--surface-raised)]"
                   >
                     Clear all
                   </button>
@@ -414,13 +408,15 @@ export default function SDKExportPage() {
                     <div
                       key={app._id}
                       className={`border rounded-xl overflow-hidden transition-colors ${
-                        sel?.selected ? 'border-blue-200 bg-white' : 'border-gray-200 bg-gray-50 opacity-60'
+                        sel?.selected
+                          ? 'border-brand-200 dark:border-brand-800 bg-[var(--surface)]'
+                          : 'border-[var(--border)] bg-[var(--surface-raised)] opacity-60'
                       }`}
                     >
                       {/* App header */}
                       <div
                         className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${
-                          sel?.selected ? 'bg-blue-50/50' : 'bg-gray-100/60'
+                          sel?.selected ? 'bg-brand-50/50 dark:bg-brand-900/10' : 'bg-[var(--surface-raised)]'
                         }`}
                         onClick={() => toggleApp(app._id)}
                       >
@@ -429,16 +425,18 @@ export default function SDKExportPage() {
                           checked={sel?.selected ?? false}
                           onChange={() => toggleApp(app._id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded border-gray-300 text-blue-600 pointer-events-none"
+                          className="rounded accent-brand-600 pointer-events-none"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm text-gray-900 leading-tight">{app.app_name}</div>
-                          <div className="text-xs text-gray-400 mt-0.5">{app.smtp_user}</div>
+                          <div className="font-semibold text-sm text-[var(--text-primary)] leading-tight">{app.app_name}</div>
+                          <div className="text-xs text-[var(--text-muted)] mt-0.5">{app.smtp_user}</div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {sel?.selected && (
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              selectedCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                              selectedCount > 0
+                                ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400'
+                                : 'bg-[var(--surface-raised)] text-[var(--text-muted)]'
                             }`}>
                               {selectedCount}/{appTemplates.length}
                             </span>
@@ -448,14 +446,14 @@ export default function SDKExportPage() {
                               <button
                                 onClick={() => toggleAllTemplates(app._id, true)}
                                 disabled={allSelected}
-                                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-blue-50"
+                                className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-800 disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-brand-50 dark:hover:bg-brand-900/20"
                               >
                                 All
                               </button>
                               <button
                                 onClick={() => toggleAllTemplates(app._id, false)}
                                 disabled={noneSelected}
-                                className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-30 px-1.5 py-0.5 rounded hover:bg-[var(--surface-raised)]"
                               >
                                 None
                               </button>
@@ -468,27 +466,29 @@ export default function SDKExportPage() {
                       {sel?.selected && (
                         <div className={`${appTemplates.length === 0 ? 'px-4 py-3' : 'p-2 grid grid-cols-1 sm:grid-cols-2 gap-1'}`}>
                           {appTemplates.length === 0 ? (
-                            <p className="text-xs text-gray-400">No templates for this app.</p>
+                            <p className="text-xs text-[var(--text-muted)]">No templates for this app.</p>
                           ) : (
                             appTemplates.map((t) => (
                               <label
                                 key={t.slug}
                                 className={`flex items-start gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                                  sel?.templates[t.slug] ? 'bg-blue-50 hover:bg-blue-100/70' : 'hover:bg-gray-50'
+                                  sel?.templates[t.slug]
+                                    ? 'bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100/70 dark:hover:bg-brand-900/30'
+                                    : 'hover:bg-[var(--surface-raised)]'
                                 }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={sel?.templates[t.slug] ?? false}
                                   onChange={() => toggleTemplate(app._id, t.slug)}
-                                  className="rounded border-gray-300 text-blue-600 mt-0.5 shrink-0"
+                                  className="rounded accent-brand-600 mt-0.5 shrink-0"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-gray-800 font-medium leading-tight">{t.name}</div>
-                                  <div className="text-xs text-gray-400 font-mono truncate mt-0.5">{t.slug}</div>
+                                  <div className="text-sm text-[var(--text-primary)] font-medium leading-tight">{t.name}</div>
+                                  <div className="text-xs text-[var(--text-muted)] font-mono truncate mt-0.5">{t.slug}</div>
                                 </div>
                                 {t.payload_schema_id && (
-                                  <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5">
+                                  <span className="text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5">
                                     typed
                                   </span>
                                 )}
@@ -503,17 +503,14 @@ export default function SDKExportPage() {
               </div>
 
               {/* Nav — outside scroll area */}
-              <div className="flex justify-between mt-5 pt-4 border-t border-gray-100">
-                <button
-                  onClick={() => setStep(0)}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-600 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
-                >
+              <div className="flex justify-between mt-5 pt-4 border-t border-[var(--border)]">
+                <button onClick={() => setStep(0)} className="btn-secondary">
                   <ChevronLeft className="w-4 h-4" /> Back
                 </button>
                 <button
                   onClick={() => setStep(2)}
                   disabled={selectedTemplateCount === 0}
-                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+                  className="btn-primary disabled:opacity-40"
                 >
                   Next: Customize <ChevronRight className="w-4 h-4" />
                 </button>
@@ -528,43 +525,43 @@ export default function SDKExportPage() {
         <div>
           <div className="space-y-6">
             {/* Service URL */}
-            <div className="border border-gray-200 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <div className="card p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                 <Settings2 className="w-4 h-4" /> Service Configuration
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Service URL</label>
+                  <label className="input-label">Service URL</label>
                   <input
                     type="text"
                     value={state.serviceUrl}
                     onChange={(e) => setState((s) => ({ ...s, serviceUrl: e.target.value }))}
                     placeholder="https://mail.yourdomain.com"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Env var name</label>
+                  <label className="input-label">Env var name</label>
                   <input
                     type="text"
                     value={state.serviceUrlVarName}
                     onChange={(e) => setState((s) => ({ ...s, serviceUrlVarName: e.target.value }))}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input font-mono"
                   />
                 </div>
               </div>
             </div>
 
             {/* Per-app env var names */}
-            <div className="border border-gray-200 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-1">API Key Variable Names</h3>
-              <p className="text-xs text-gray-400 mb-3">Rename the env var for each app's API key.</p>
+            <div className="card p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1">API Key Variable Names</h3>
+              <p className="text-xs text-[var(--text-muted)] mb-3">Rename the env var for each app's API key.</p>
               <div className="space-y-3">
                 {apps
                   .filter((app) => state.appSelections[app._id]?.selected)
                   .map((app) => (
                     <div key={app._id} className="flex items-center gap-3">
-                      <div className="w-32 text-sm text-gray-700 font-medium truncate">{app.app_name}</div>
+                      <div className="w-32 text-sm text-[var(--text-secondary)] font-medium truncate">{app.app_name}</div>
                       <input
                         type="text"
                         value={state.appSelections[app._id]?.envVarName ?? ''}
@@ -577,7 +574,7 @@ export default function SDKExportPage() {
                             },
                           }))
                         }
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="input flex-1 font-mono"
                       />
                     </div>
                   ))}
@@ -585,9 +582,9 @@ export default function SDKExportPage() {
             </div>
 
             {/* Summary */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-800">
+            <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 rounded-xl p-4 text-sm text-brand-800 dark:text-brand-300">
               <p className="font-medium mb-1">Export summary</p>
-              <ul className="text-xs space-y-0.5 text-blue-700">
+              <ul className="text-xs space-y-0.5 text-brand-700 dark:text-brand-400">
                 <li>Language: <strong>{currentLang?.name}</strong></li>
                 <li>Apps: <strong>{selectedAppCount}</strong></li>
                 <li>Templates: <strong>{selectedTemplateCount}</strong></li>
@@ -597,16 +594,13 @@ export default function SDKExportPage() {
           </div>
 
           <div className="flex justify-between mt-6">
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
-            >
+            <button onClick={() => setStep(1)} className="btn-secondary">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+              className="btn-primary disabled:opacity-40"
             >
               <Eye className="w-4 h-4" /> Generate & Preview
             </button>
@@ -626,7 +620,7 @@ export default function SDKExportPage() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors ${
                   i === activeFile
                     ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]'
                 }`}
               >
                 {f.filename}
@@ -636,7 +630,7 @@ export default function SDKExportPage() {
 
           {/* Code preview */}
           {generatedFiles[activeFile] && (
-            <div className="relative rounded-xl border border-gray-200 overflow-hidden">
+            <div className="relative rounded-xl border border-[var(--border)] overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700">
                 <span className="text-xs text-gray-400 font-mono">{generatedFiles[activeFile].filename}</span>
                 <button
@@ -653,15 +647,12 @@ export default function SDKExportPage() {
           )}
 
           <div className="flex justify-between mt-5">
-            <button
-              onClick={() => setStep(2)}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
-            >
+            <button onClick={() => setStep(2)} className="btn-secondary">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
               onClick={handleDownloadZip}
-              className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+              className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors"
             >
               <Download className="w-4 h-4" /> Download ZIP ({generatedFiles.length} files)
             </button>

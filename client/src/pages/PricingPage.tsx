@@ -1,10 +1,106 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Check, X, ArrowRight, Server, Cloud,
   Download, Star,
 } from 'lucide-react';
 import { PublicPage, PageHero } from '../components/PublicLayout';
+import { useAuthStore } from '../store/authStore';
+import client from '../api/client';
+import type { Plan } from '../types';
+
+// ─── Live plan cards (from API) ───────────────────────────────────────────────
+
+function LivePlansSection({ yearly }: { yearly: boolean }) {
+  const { user } = useAuthStore();
+  const [plans, setPlans]   = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    client.get<Plan[]>('/plans')
+      .then(({ data }) => setPlans(data))
+      .catch(() => setPlans([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading || plans.length === 0) return null;
+
+  const fmtLimit = (v: number) => v === -1 ? 'Unlimited' : v.toLocaleString();
+
+  return (
+    <section className="py-20 bg-white border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-6">
+        <h2 className="text-2xl font-black text-slate-900 text-center mb-2">Current Plans</h2>
+        <p className="text-sm text-slate-500 text-center mb-12">Managed plans available today — pick what fits your needs.</p>
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {plans.map((plan) => {
+            const price = yearly && plan.price_yearly > 0 ? plan.price_yearly : plan.price_monthly;
+            const isFeatured = !!plan.badge;
+            return (
+              <div key={plan._id}
+                className={`relative flex flex-col rounded-2xl transition-all p-6 ${
+                  isFeatured
+                    ? 'border-2 border-indigo-500 shadow-2xl shadow-indigo-500/15 scale-[1.02]'
+                    : 'border border-slate-200 hover:border-slate-300 hover:shadow-lg'
+                } bg-white`}>
+                {plan.badge && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-indigo-600 text-white">
+                    {plan.badge}
+                  </div>
+                )}
+                <div className="text-base font-black text-slate-900">{plan.name}</div>
+                {plan.description && <div className="text-xs text-slate-500 mt-0.5 mb-4">{plan.description}</div>}
+                <div className="mb-5 pb-5 border-b border-slate-100">
+                  {plan.price_monthly === 0
+                    ? <div className="text-4xl font-black text-slate-900">Free</div>
+                    : <div className="flex items-end gap-1">
+                        <span className="text-slate-400 text-lg font-semibold">$</span>
+                        <span className="text-4xl font-black text-slate-900 leading-none">{price}</span>
+                        <span className="text-slate-400 text-sm font-medium pb-0.5">/mo</span>
+                      </div>
+                  }
+                  {yearly && plan.price_yearly > 0 && plan.price_monthly > 0 && (
+                    <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+                      Save ${(plan.price_monthly - plan.price_yearly) * 12}/yr
+                    </div>
+                  )}
+                </div>
+                <ul className="space-y-2 flex-1 mb-6">
+                  {[
+                    plan.limits.max_apps !== -1 && `${fmtLimit(plan.limits.max_apps)} apps`,
+                    `${fmtLimit(plan.limits.max_emails_per_month)} emails/month`,
+                    plan.limits.max_members !== -1 && `${fmtLimit(plan.limits.max_members)} members`,
+                    plan.limits.ai_enabled && 'AI features',
+                    plan.limits.custom_domain && 'Custom domain',
+                    plan.limits.priority_support && 'Priority support',
+                    ...plan.features,
+                  ].filter(Boolean).map((f) => (
+                    <li key={String(f)} className="flex items-start gap-2 text-xs text-slate-700">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to={user ? '/settings' : '/register'}
+                  className={`w-full text-center text-sm font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 group ${
+                    isFeatured
+                      ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5'
+                      : 'border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 hover:bg-indigo-50'
+                  }`}>
+                  {user ? 'Select plan' : 'Get started'}
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PricingPage() {
   const [yearly, setYearly] = useState(false);
@@ -16,6 +112,7 @@ export function PricingPage() {
         title={<>Simple, honest<br /><span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">pricing</span></>}
         subtitle="From fully self-hosted and free to fully managed with enterprise support — pick the plan that fits how you work."
       />
+      <LivePlansSection yearly={yearly} />
       <PricingCards yearly={yearly} setYearly={setYearly} />
       <ComparisonTable />
       <FaqSection />

@@ -8,6 +8,7 @@ export interface IEmailLog extends Document<string> {
   app_id: string | null;
   template_id: string | null;
   template_slug: string;
+  template_version: number | null;
   recipient: string;
   status: EmailStatus;
   error_message?: string;
@@ -20,6 +21,7 @@ const EmailLogSchema = new Schema<IEmailLog>(
     app_id: { type: String, ref: 'EmailApp', default: null },
     template_id: { type: String, default: null },
     template_slug: { type: String, required: true },
+    template_version: { type: Number, default: null },
     recipient: { type: String, required: true },
     status: { type: String, enum: ['success', 'failed', 'unsubscribed'], required: true },
     error_message: { type: String },

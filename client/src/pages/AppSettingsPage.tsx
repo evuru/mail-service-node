@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { SmtpProviderPicker } from '../components/SmtpProviderPicker';
+import { PasswordInput } from '../components/PasswordInput';
 import { useAppStore } from '../store/appStore';
 import client from '../api/client';
 import type { EmailApp, MemberRole, SmtpProvider } from '../types';
@@ -30,31 +31,26 @@ export function AppSettingsPage() {
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
 
-  // General fields
   const [appName, setAppName] = useState('');
   const [appUrl, setAppUrl] = useState('');
 
-  // SMTP fields
-  const [smtpHost, setSmtpHost] = useState('');
-  const [smtpPort, setSmtpPort] = useState(587);
-  const [smtpSecure, setSmtpSecure] = useState(false);
-  const [smtpUser, setSmtpUser] = useState('');
-  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpHost, setSmtpHost]         = useState('');
+  const [smtpPort, setSmtpPort]         = useState(587);
+  const [smtpSecure, setSmtpSecure]     = useState(false);
+  const [smtpUser, setSmtpUser]         = useState('');
+  const [smtpPass, setSmtpPass]         = useState('');
   const [smtpFromName, setSmtpFromName] = useState('');
 
-  // Members
-  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [members, setMembers]       = useState<MemberRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor');
-  const [inviting, setInviting] = useState(false);
+  const [inviteRole, setInviteRole]   = useState<'editor' | 'viewer'>('editor');
+  const [inviting, setInviting]       = useState(false);
 
-  // API key
   const [showKey, setShowKey] = useState(false);
-  const [regen, setRegen] = useState(false);
+  const [regen, setRegen]     = useState(false);
 
-  // AI settings
-  const [llmEnabled, setLlmEnabled] = useState(false);
-  const [llmMinRole, setLlmMinRole] = useState<MemberRole>('editor');
+  const [llmEnabled, setLlmEnabled]   = useState(false);
+  const [llmMinRole, setLlmMinRole]   = useState<MemberRole>('editor');
 
   useEffect(() => {
     if (!id) return;
@@ -100,9 +96,7 @@ export function AppSettingsPage() {
   };
 
   const applyProvider = (p: SmtpProvider) => {
-    setSmtpHost(p.host);
-    setSmtpPort(p.port);
-    setSmtpSecure(p.secure);
+    setSmtpHost(p.host); setSmtpPort(p.port); setSmtpSecure(p.secure);
   };
 
   const regenerateKey = async () => {
@@ -142,52 +136,49 @@ export function AppSettingsPage() {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'general', label: 'General' },
-    { id: 'smtp', label: 'SMTP' },
-    { id: 'apikey', label: 'API Key' },
+    { id: 'smtp',    label: 'SMTP' },
+    { id: 'apikey',  label: 'API Key' },
     { id: 'members', label: 'Members' },
-    { id: 'ai', label: 'AI' },
-    { id: 'dns', label: 'DNS Guide' },
+    { id: 'ai',      label: 'AI' },
+    { id: 'dns',     label: 'DNS Guide' },
   ];
 
-  if (loading) return <><Header /><main className="p-6 text-sm text-gray-400">Loading...</main></>;
+  if (loading) return <><Header /><main className="p-6 text-sm text-[var(--text-muted)]">Loading…</main></>;
 
   return (
     <>
       <Header />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="page-content">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 mb-6">
-            <button
-              onClick={() => navigate('/apps')}
-              className="text-sm text-gray-500 hover:text-gray-900"
-            >
+            <button onClick={() => navigate('/apps')} className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
               Apps
             </button>
-            <span className="text-gray-300">/</span>
-            <span className="text-sm font-medium text-gray-900">{app?.app_name}</span>
+            <span className="text-[var(--text-muted)]">/</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">{app?.app_name}</span>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-600 mb-4">
+            <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400">
               {error}
             </div>
           )}
           {saved && (
-            <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700 mb-4">
+            <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-700 dark:text-emerald-400">
               {saved}
             </div>
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-gray-200 mb-6">
+          <div className="flex gap-1 border-b border-[var(--border)] mb-6">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                   tab === t.id
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-900'
+                    ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 {t.label}
@@ -197,169 +188,112 @@ export function AppSettingsPage() {
 
           {/* ── General ── */}
           {tab === 'general' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">General</h2>
+            <div className="card p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">General</h2>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">App name</label>
-                <input
-                  value={appName}
-                  onChange={(e) => setAppName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">Used as the <code>{'{{appName}}'}</code> variable in templates.</p>
+                <label className="input-label">App name</label>
+                <input value={appName} onChange={(e) => setAppName(e.target.value)} className="input" />
+                <p className="text-xs text-[var(--text-muted)] mt-1">Used as the <code className="bg-[var(--surface-raised)] px-1 rounded">{'{{appName}}'}</code> variable in templates.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">App URL</label>
-                <input
-                  type="url"
-                  value={appUrl}
-                  onChange={(e) => setAppUrl(e.target.value)}
-                  placeholder="https://yourapp.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  Used as the base URL for unsubscribe links in emails. Falls back to the server's <code>SERVER_URL</code> env var if left blank.
+                <label className="input-label">App URL</label>
+                <input type="url" value={appUrl} onChange={(e) => setAppUrl(e.target.value)}
+                  placeholder="https://yourapp.com" className="input" />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Base URL for unsubscribe links. Falls back to the server's <code className="bg-[var(--surface-raised)] px-1 rounded">SERVER_URL</code> env var if blank.
                 </p>
               </div>
-              <button
-                onClick={saveGeneral}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
+              <button onClick={saveGeneral} disabled={saving} className="btn-primary disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
           )}
 
           {/* ── SMTP ── */}
           {tab === 'smtp' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <div className="card p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-900">SMTP Settings</h2>
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">SMTP Settings</h2>
                 <SmtpProviderPicker onSelect={applyProvider} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
-                  <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="smtp.example.com" />
+                  <label className="input-label">SMTP Host</label>
+                  <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} className="input" placeholder="smtp.example.com" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Port</label>
-                  <input type="number" value={smtpPort} onChange={(e) => setSmtpPort(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label className="input-label">Port</label>
+                  <input type="number" value={smtpPort} onChange={(e) => setSmtpPort(Number(e.target.value))} className="input" />
                 </div>
                 <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={smtpSecure} onChange={(e) => setSmtpSecure(e.target.checked)}
-                      className="w-4 h-4 rounded" />
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
+                    <input type="checkbox" checked={smtpSecure} onChange={(e) => setSmtpSecure(e.target.checked)} className="w-4 h-4 rounded accent-brand-600" />
                     TLS / SSL (port 465)
                   </label>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SMTP User</label>
-                  <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="user@example.com" />
+                  <label className="input-label">SMTP User</label>
+                  <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} className="input" placeholder="user@example.com" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Password</label>
-                  <input type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="••••••••" />
+                  <label className="input-label">SMTP Password</label>
+                  <PasswordInput value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">From Name</label>
-                  <input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="My Company" />
+                  <label className="input-label">From Name</label>
+                  <input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} className="input" placeholder="My Company" />
                 </div>
               </div>
 
-              <button
-                onClick={saveSMTP}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save SMTP'}
+              <button onClick={saveSMTP} disabled={saving} className="btn-primary disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save SMTP'}
               </button>
             </div>
           )}
 
           {/* ── API Key ── */}
           {tab === 'apikey' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-gray-900">API Key</h2>
-              <p className="text-xs text-gray-500">
-                Send this as the <code className="bg-gray-100 px-1 rounded">X-API-KEY</code> header to authenticate API requests for this app.
+            <div className="card p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">API Key</h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                Send this as the <code className="bg-[var(--surface-raised)] px-1 rounded">X-API-KEY</code> header to authenticate API requests for this app.
               </p>
               <div className="flex gap-2 items-center">
                 <input
                   type={showKey ? 'text' : 'password'}
                   readOnly
                   value={app?.api_key ?? ''}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono bg-gray-50"
+                  className="input flex-1 font-mono bg-[var(--surface-raised)]"
                 />
-                <button
-                  onClick={() => setShowKey((v) => !v)}
-                  className="px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  {showKey ? 'Hide' : 'Show'}
-                </button>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(app?.api_key ?? ''); flash('Copied!'); }}
-                  className="px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  Copy
-                </button>
+                <button onClick={() => setShowKey((v) => !v)} className="btn-secondary">{showKey ? 'Hide' : 'Show'}</button>
+                <button onClick={() => { navigator.clipboard.writeText(app?.api_key ?? ''); flash('Copied!'); }} className="btn-secondary">Copy</button>
               </div>
-              <button
-                onClick={regenerateKey}
-                disabled={regen}
-                className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
-              >
-                {regen ? 'Regenerating...' : 'Regenerate key'}
+              <button onClick={regenerateKey} disabled={regen} className="btn-danger disabled:opacity-50">
+                {regen ? 'Regenerating…' : 'Regenerate key'}
               </button>
             </div>
           )}
 
           {/* ── Members ── */}
           {tab === 'members' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
-              <h2 className="text-sm font-semibold text-gray-900">Members</h2>
+            <div className="card p-5 space-y-5">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Members</h2>
 
-              {/* Invite form */}
               <form onSubmit={inviteMember} className="flex gap-2">
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  required
-                  placeholder="user@example.com"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as 'editor' | 'viewer')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+                <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                  required placeholder="user@example.com" className="input flex-1" />
+                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as 'editor' | 'viewer')} className="input w-auto">
                   <option value="editor">Editor</option>
                   <option value="viewer">Viewer</option>
                 </select>
-                <button
-                  type="submit"
-                  disabled={inviting}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
+                <button type="submit" disabled={inviting} className="btn-primary disabled:opacity-50">
                   {inviting ? 'Adding…' : 'Add'}
                 </button>
               </form>
 
-              {/* Header row */}
               {members.length > 0 && (
-                <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center px-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
+                <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 items-center px-2 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
                   <span>User</span>
                   <span className="w-10 text-center">Read</span>
                   <span className="w-10 text-center">Write</span>
@@ -382,24 +316,22 @@ export function AppSettingsPage() {
                   };
 
                   return (
-                    <div key={m._id} className="grid md:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 gap-y-2 items-center py-2.5 border-b border-gray-100 last:border-0 px-2">
-                      {/* User info */}
+                    <div key={m._id} className="grid md:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-x-4 gap-y-2 items-center py-2.5 border-b border-[var(--border)] last:border-0 px-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-xs font-bold text-brand-600 dark:text-brand-400 shrink-0">
                           {(u?.name || u?.email || '?').charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900 truncate">{u?.name || u?.email || '—'}</div>
-                          {u?.name && <div className="text-xs text-gray-400 truncate">{u.email}</div>}
+                          <div className="text-sm font-medium text-[var(--text-primary)] truncate">{u?.name || u?.email || '—'}</div>
+                          {u?.name && <div className="text-xs text-[var(--text-muted)] truncate">{u.email}</div>}
                         </div>
-                        <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
-                          isOwner ? 'bg-blue-100 text-blue-700' :
-                          m.role === 'editor' ? 'bg-green-100 text-green-700' :
-                          'bg-gray-100 text-gray-600'
+                        <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-medium shrink-0 ${
+                          isOwner     ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400' :
+                          m.role === 'editor' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                          'bg-[var(--surface-raised)] text-[var(--text-muted)]'
                         }`}>{m.role}</span>
                       </div>
 
-                      {/* CRUD toggles */}
                       {(['can_read', 'can_write', 'can_delete', 'can_manage'] as const).map((flag) => (
                         <div key={flag} className="flex items-center justify-center w-10">
                           <input
@@ -407,19 +339,15 @@ export function AppSettingsPage() {
                             checked={m[flag]}
                             disabled={isOwner}
                             onChange={(e) => updatePerm(flag, e.target.checked)}
-                            className="w-4 h-4 accent-blue-600 disabled:opacity-40 cursor-pointer disabled:cursor-default"
+                            className="w-4 h-4 accent-brand-600 disabled:opacity-40 cursor-pointer disabled:cursor-default"
                             title={flag.replace('can_', '')}
                           />
                         </div>
                       ))}
 
-                      {/* Remove */}
                       <div className="w-12 flex justify-end">
                         {!isOwner && u && (
-                          <button
-                            onClick={() => removeMember(u._id)}
-                            className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50"
-                          >
+                          <button onClick={() => removeMember(u._id)} className="btn-danger text-xs">
                             Remove
                           </button>
                         )}
@@ -429,7 +357,7 @@ export function AppSettingsPage() {
                 })}
               </div>
 
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[var(--text-muted)]">
                 Read — view templates &amp; logs · Write — create/edit templates · Delete — remove templates · Manage — SMTP, API key, member management
               </p>
             </div>
@@ -437,50 +365,39 @@ export function AppSettingsPage() {
 
           {/* ── AI ── */}
           {tab === 'ai' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+            <div className="card p-5 space-y-5">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">AI Features</h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Control whether AI features (template generation, improve, schema generation) are available to members of this app.
-                  The platform-wide AI config must also be enabled by a superadmin.
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">AI Features</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Control whether AI features are available to members of this app. The platform-wide AI config must also be enabled by a superadmin.
                 </p>
               </div>
 
-              {/* Enable toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between p-4 bg-[var(--surface-raised)] rounded-xl">
                 <div>
-                  <div className="text-sm font-medium text-gray-900">Enable AI for this app</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Allow members to use AI features in templates and schemas</div>
+                  <div className="text-sm font-medium text-[var(--text-primary)]">Enable AI for this app</div>
+                  <div className="text-xs text-[var(--text-muted)] mt-0.5">Allow members to use AI features in templates and schemas</div>
                 </div>
                 <button
                   onClick={() => setLlmEnabled((v) => !v)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${llmEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${llmEnabled ? 'bg-brand-600' : 'bg-[var(--border)]'}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${llmEnabled ? 'translate-x-5' : ''}`} />
                 </button>
               </div>
 
-              {/* Min role */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Minimum role to use AI</label>
-                <select
-                  value={llmMinRole}
-                  onChange={(e) => setLlmMinRole(e.target.value as MemberRole)}
-                  disabled={!llmEnabled}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
+                <label className="input-label">Minimum role to use AI</label>
+                <select value={llmMinRole} onChange={(e) => setLlmMinRole(e.target.value as MemberRole)}
+                  disabled={!llmEnabled} className="input disabled:opacity-50">
                   <option value="viewer">Viewer — all members</option>
                   <option value="editor">Editor and above</option>
                   <option value="owner">Owner only</option>
                 </select>
-                <p className="text-xs text-gray-400 mt-1">Members below this role will not see AI controls.</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Members below this role will not see AI controls.</p>
               </div>
 
-              <button
-                onClick={saveAi}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
+              <button onClick={saveAi} disabled={saving} className="btn-primary disabled:opacity-50">
                 {saving ? 'Saving…' : 'Save AI settings'}
               </button>
             </div>
@@ -496,7 +413,7 @@ export function AppSettingsPage() {
   );
 }
 
-// ─── DNS Guide component ──────────────────────────────────────────────────────
+// ─── DNS Guide ────────────────────────────────────────────────────────────────
 
 const SPF_INCLUDES: Record<string, string> = {
   'hostinger': 'include:_spf.mail.hostinger.com',
@@ -530,7 +447,7 @@ function CopyButton({ value }: { value: string }) {
     <button
       type="button"
       onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="ml-2 px-2 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors flex-shrink-0"
+      className="ml-2 px-2 py-0.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors shrink-0"
     >
       {copied ? 'Copied!' : 'Copy'}
     </button>
@@ -539,16 +456,14 @@ function CopyButton({ value }: { value: string }) {
 
 function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
   return (
-    <div className="bg-gray-900 rounded-lg p-3 space-y-2 font-mono text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-4 min-w-0 flex-1">
-          <span className="text-blue-400 flex-shrink-0">Type: <span className="text-white">{type}</span></span>
-          <span className="text-blue-400 flex-shrink-0">Name: <span className="text-white">{name}</span></span>
-        </div>
+    <div className="bg-gray-900 rounded-xl p-3 space-y-2 font-mono text-xs">
+      <div className="flex items-center gap-4">
+        <span className="text-blue-400 shrink-0">Type: <span className="text-white">{type}</span></span>
+        <span className="text-blue-400 shrink-0">Name: <span className="text-white">{name}</span></span>
       </div>
       <div className="flex items-start gap-2">
-        <span className="text-blue-400 flex-shrink-0">Value:</span>
-        <span className="text-green-400 break-all flex-1">{value}</span>
+        <span className="text-blue-400 shrink-0">Value:</span>
+        <span className="text-emerald-400 break-all flex-1">{value}</span>
         <CopyButton value={value} />
       </div>
     </div>
@@ -563,67 +478,68 @@ function DnsGuide({ smtpUser, smtpHost }: { smtpUser: string; smtpHost: string }
 
   return (
     <div className="space-y-5">
-      {/* Header card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+      <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl p-4 text-sm text-brand-800 dark:text-brand-300">
         <strong>Sending domain detected: </strong>
-        <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">{domain}</code>
-        <span className="text-blue-600 ml-2">(from SMTP user field)</span>
-        <p className="mt-1 text-blue-700 text-xs">Add the following records to your DNS settings in your domain registrar. Changes can take up to 48 hours to propagate.</p>
+        <code className="bg-brand-100 dark:bg-brand-900/40 px-1.5 py-0.5 rounded font-mono">{domain}</code>
+        <span className="text-brand-600 dark:text-brand-400 ml-2">(from SMTP user field)</span>
+        <p className="mt-1 text-xs opacity-80">Add the following records to your DNS settings in your domain registrar. Changes can take up to 48 hours to propagate.</p>
       </div>
 
-      {/* SPF */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          <h3 className="text-sm font-semibold text-gray-900">SPF Record</h3>
-          <span className="text-xs text-gray-400">Sender Policy Framework — declares authorised mail servers</span>
-        </div>
-        <DnsRecord type="TXT" name={`@`} value={spfValue} />
-        <p className="text-xs text-gray-500">
-          Provider detected from SMTP host: <code className="bg-gray-100 px-1 rounded">{smtpHost || 'not set'}</code>.
-          If incorrect, replace <code className="bg-gray-100 px-1 rounded">{spfInclude}</code> with your provider's SPF include.
-        </p>
-      </div>
-
-      {/* DKIM */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
-          <h3 className="text-sm font-semibold text-gray-900">DKIM Record</h3>
-          <span className="text-xs text-gray-400">Cryptographic email signature — generated by your provider</span>
-        </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
-          DKIM keys are generated inside your SMTP provider's dashboard and cannot be auto-generated here.
-          Go to your email provider's panel → <strong>Email Authentication</strong> or <strong>DKIM Settings</strong> and copy the TXT record they provide.
-        </div>
-        <div className="bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-400 space-y-1">
-          <div>Type: <span className="text-white">TXT</span></div>
-          <div>Name: <span className="text-white">selector._domainkey.{domain}</span></div>
-          <div>Value: <span className="text-green-400">(copy from your provider's DKIM panel)</span></div>
-        </div>
-      </div>
-
-      {/* DMARC */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-          <h3 className="text-sm font-semibold text-gray-900">DMARC Record</h3>
-          <span className="text-xs text-gray-400">Policy for SPF/DKIM failures — start with p=none to monitor</span>
-        </div>
-        <DnsRecord type="TXT" name={`_dmarc.${domain}`} value={dmarcValue} />
-        <div className="text-xs text-gray-500 space-y-1">
-          <p>Start with <code className="bg-gray-100 px-1 rounded">p=none</code> for 2–4 weeks to collect reports, then upgrade:</p>
-          <div className="flex items-center gap-2 mt-1">
-            <code className="bg-gray-100 px-2 py-1 rounded text-gray-700 flex-1">v=DMARC1; p=quarantine; adkim=r; aspf=r;</code>
-            <CopyButton value="v=DMARC1; p=quarantine; adkim=r; aspf=r;" />
+      {[
+        {
+          dot: 'bg-emerald-500',
+          title: 'SPF Record',
+          sub: 'Sender Policy Framework — declares authorised mail servers',
+          content: <DnsRecord type="TXT" name="@" value={spfValue} />,
+          note: <p className="text-xs text-[var(--text-muted)]">Provider detected from SMTP host: <code className="bg-[var(--surface-raised)] px-1 rounded">{smtpHost || 'not set'}</code>. If incorrect, replace <code className="bg-[var(--surface-raised)] px-1 rounded">{spfInclude}</code> with your provider's SPF include.</p>,
+        },
+        {
+          dot: 'bg-amber-400',
+          title: 'DKIM Record',
+          sub: 'Cryptographic email signature — generated by your provider',
+          content: (
+            <>
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                DKIM keys are generated inside your SMTP provider's dashboard. Go to <strong>Email Authentication</strong> or <strong>DKIM Settings</strong> and copy the TXT record they provide.
+              </div>
+              <div className="bg-gray-900 rounded-xl p-3 font-mono text-xs text-gray-400 space-y-1">
+                <div>Type: <span className="text-white">TXT</span></div>
+                <div>Name: <span className="text-white">selector._domainkey.{domain}</span></div>
+                <div>Value: <span className="text-emerald-400">(copy from your provider's DKIM panel)</span></div>
+              </div>
+            </>
+          ),
+        },
+        {
+          dot: 'bg-brand-500',
+          title: 'DMARC Record',
+          sub: 'Policy for SPF/DKIM failures — start with p=none to monitor',
+          content: <DnsRecord type="TXT" name={`_dmarc.${domain}`} value={dmarcValue} />,
+          note: (
+            <div className="text-xs text-[var(--text-muted)] space-y-1">
+              <p>Start with <code className="bg-[var(--surface-raised)] px-1 rounded">p=none</code> for 2–4 weeks to collect reports, then upgrade:</p>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="bg-[var(--surface-raised)] px-2 py-1 rounded text-[var(--text-secondary)] flex-1">v=DMARC1; p=quarantine; adkim=r; aspf=r;</code>
+                <CopyButton value="v=DMARC1; p=quarantine; adkim=r; aspf=r;" />
+              </div>
+            </div>
+          ),
+        },
+      ].map((section) => (
+        <div key={section.title} className="card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${section.dot} inline-block`} />
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{section.title}</h3>
+            <span className="text-xs text-[var(--text-muted)]">{section.sub}</span>
           </div>
+          {section.content}
+          {section.note}
         </div>
-      </div>
+      ))}
 
-      {/* Checklist */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Setup Checklist</h3>
-        <ul className="space-y-2 text-sm text-gray-600">
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Setup Checklist</h3>
+        <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
           {[
             'SPF TXT record added to DNS',
             'DKIM TXT record generated in provider panel and added to DNS',
@@ -634,7 +550,7 @@ function DnsGuide({ smtpUser, smtpHost }: { smtpUser: string; smtpHost: string }
             'DMARC reports reviewed after 2 weeks — escalate to p=quarantine',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2">
-              <span className="mt-0.5 w-4 h-4 border-2 border-gray-300 rounded flex-shrink-0 inline-block" />
+              <span className="mt-0.5 w-4 h-4 border-2 border-[var(--border)] rounded shrink-0 inline-block" />
               {item}
             </li>
           ))}

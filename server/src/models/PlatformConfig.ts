@@ -10,6 +10,12 @@ export interface IPlatformConfig extends Document {
     model: string;
     enabled: boolean;
   };
+  verification: {
+    require_email_verification: boolean;
+    require_phone_for_non_org: boolean;
+    reverification_interval_days: number;  // 0 = disabled
+    last_reverify_at?: Date;
+  };
 }
 
 const PlatformConfigSchema = new Schema<IPlatformConfig>(
@@ -24,6 +30,12 @@ const PlatformConfigSchema = new Schema<IPlatformConfig>(
       base_url: { type: String, default: '' },
       model:    { type: String, default: 'gemini-2.0-flash' },
       enabled:  { type: Boolean, default: false },
+    },
+    verification: {
+      require_email_verification:    { type: Boolean, default: false },
+      require_phone_for_non_org:     { type: Boolean, default: false },
+      reverification_interval_days:  { type: Number, default: 0 },
+      last_reverify_at:              { type: Date },
     },
   },
   { timestamps: false }

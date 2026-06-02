@@ -3,6 +3,7 @@ import Handlebars from 'handlebars';
 import juice from 'juice';
 import { getAppTransporter } from '../config/smtp';
 import { Template } from '../models/Template';
+import { TemplateVersion } from '../models/TemplateVersion';
 import { EmailLog } from '../models/EmailLog';
 import { Unsubscribe } from '../models/Unsubscribe';
 import type { IEmailApp } from '../models/EmailApp';
@@ -73,6 +74,7 @@ export interface SendEmailOptions {
   recipient: string;
   data: Record<string, unknown>;
   app: IEmailApp;
+  version?: number;
 }
 
 export interface SendRawEmailOptions {
@@ -89,10 +91,33 @@ export interface SendResult {
   error?: string;
 }
 
+// ─── resolveTemplateContent ───────────────────────────────────────────────────
+
+/**
+ * Returns the html/subject/version to use for a send.
+ * If version is specified, fetches that exact TemplateVersion.
+ * Otherwise uses template.active_version; falls back to template.body_html
+ * for templates that pre-date versioning.
+ */
+async function resolveTemplateContent(
+  template: { _id: string; body_html: string; subject: string; active_version: number },
+  version?: number,
+): Promise<{ html: string; subject: string; resolvedVersion: number | null }> {
+  const targetVersion = version ?? (template.active_version > 0 ? template.active_version : null);
+
+  if (targetVersion !== null) {
+    const tv = await TemplateVersion.findOne({ template_id: template._id, version: targetVersion }).lean();
+    if (tv) return { html: tv.html, subject: tv.subject, resolvedVersion: targetVersion };
+  }
+
+  // Fallback: use the template's stored body_html (backward compat)
+  return { html: template.body_html, subject: template.subject, resolvedVersion: null };
+}
+
 // ─── sendEmail ────────────────────────────────────────────────────────────────
 
 export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> => {
-  const { template_slug, recipient, data, app } = options;
+  const { template_slug, recipient, data, app, version } = options;
 
   // Check if recipient has unsubscribed from this app
   const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
@@ -111,12 +136,15 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
 
   if (!template) throw new Error(`Template "${template_slug}" not found`);
 
+  const { html: resolvedHtml, subject: resolvedSubject, resolvedVersion } =
+    await resolveTemplateContent(template, version);
+
   const unsubscribeUrl = buildUnsubscribeUrl(app, recipient);
   const mergedData = { ...getGlobalVars(app), ...data, ...(unsubscribeUrl ? { unsubscribeUrl } : {}) };
-  const renderedBody = await buildBody(template.body_html, template.use_layout, template.layout_slug ?? null, app, mergedData);
+  const renderedBody = await buildBody(resolvedHtml, template.use_layout, template.layout_slug ?? null, app, mergedData);
   const inlinedHtml = juice(renderedBody);
   const plainText = htmlToPlainText(renderedBody);
-  const renderedSubject = Handlebars.compile(template.subject)(mergedData);
+  const renderedSubject = Handlebars.compile(resolvedSubject)(mergedData);
 
   const fromName = template.sender_name || app.smtp_from_name || app.app_name || 'Mail Service';
   const from = `"${fromName}" <${app.smtp_user}>`;
@@ -143,7 +171,9 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
         headers: extraHeaders,
       });
       await EmailLog.create({
-        app_id: app._id, template_id: template._id, template_slug, recipient, status: 'success',
+        app_id: app._id, template_id: template._id, template_slug,
+        template_version: resolvedVersion,
+        recipient, status: 'success',
       });
       return { success: true, messageId: info.messageId };
     } catch (err) {
@@ -154,8 +184,9 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
   }
 
   await EmailLog.create({
-    app_id: app._id, template_id: template._id, template_slug, recipient,
-    status: 'failed', error_message: lastError?.message,
+    app_id: app._id, template_id: template._id, template_slug,
+    template_version: resolvedVersion,
+    recipient, status: 'failed', error_message: lastError?.message,
   });
   return { success: false, error: lastError?.message };
 };
@@ -216,7 +247,8 @@ export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendRe
 export const renderTemplate = async (
   template_slug: string,
   data: Record<string, unknown>,
-  app: IEmailApp
+  app: IEmailApp,
+  version?: number,
 ): Promise<{ subject: string; html: string }> => {
   const template =
     await Template.findOne({ slug: template_slug, app_id: app._id }) ??
@@ -224,16 +256,18 @@ export const renderTemplate = async (
 
   if (!template) throw new Error(`Template "${template_slug}" not found`);
 
+  const { html: resolvedHtml, subject: resolvedSubject } = await resolveTemplateContent(template, version);
+
   const mergedData = { ...getGlobalVars(app), ...data };
   const renderedBody = await buildBody(
-    template.body_html,
+    resolvedHtml,
     template.use_layout && !template.is_layout,
     template.layout_slug ?? null,
     app,
     mergedData
   );
   const html = juice(renderedBody);
-  const subject = Handlebars.compile(template.subject)(mergedData);
+  const subject = Handlebars.compile(resolvedSubject)(mergedData);
   return { subject, html };
 };
 

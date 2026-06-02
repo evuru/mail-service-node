@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import client from '../api/client';
-import type { Organization, OrgLlmConfig, LlmProvider, User } from '../types';
+import type { Organization, OrgLlmConfig, LlmProvider, OrgVerificationConfig, User } from '../types';
 
 interface OrgState {
   org: Organization | null;
   members: User[];
   orgLlm: OrgLlmConfig | null;
+  orgVerification: OrgVerificationConfig | null;
   loading: boolean;
   error: string | null;
 
@@ -18,6 +19,8 @@ interface OrgState {
   fetchOrgLlm: () => Promise<void>;
   saveOrgLlm: (update: Partial<OrgLlmConfig> & { api_key?: string; provider?: LlmProvider }) => Promise<void>;
   testOrgLlm: () => Promise<string>;
+  fetchOrgVerification: () => Promise<void>;
+  saveOrgVerification: (update: Partial<OrgVerificationConfig>) => Promise<void>;
   clearOrg: () => void;
 }
 
@@ -25,6 +28,7 @@ export const useOrgStore = create<OrgState>((set) => ({
   org: null,
   members: [],
   orgLlm: null,
+  orgVerification: null,
   loading: false,
   error: null,
 
@@ -82,5 +86,15 @@ export const useOrgStore = create<OrgState>((set) => ({
     return data.response ?? 'OK';
   },
 
-  clearOrg: () => set({ org: null, members: [], orgLlm: null, error: null }),
+  fetchOrgVerification: async () => {
+    const { data } = await client.get<OrgVerificationConfig>('/orgs/me/verification');
+    set({ orgVerification: data });
+  },
+
+  saveOrgVerification: async (update) => {
+    const { data } = await client.put<OrgVerificationConfig>('/orgs/me/verification', update);
+    set({ orgVerification: data });
+  },
+
+  clearOrg: () => set({ org: null, members: [], orgLlm: null, orgVerification: null, error: null }),
 }));

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config(); // fallback for plain `npm start` with a .env file; no-op when dotenv-cli pre-loaded a named env file
+
 import path from 'path';
 import express from 'express';
 import cors from 'cors';
@@ -7,7 +10,7 @@ import { apiRoutes } from './routes';
 import { requestLogger } from './middleware/requestLogger';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env.PORT) || 4001;
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 if (!process.env.JWT_SECRET) {
@@ -50,7 +53,7 @@ if (IS_PROD) {
 const start = async () => {
   await connectDB();
   app.listen(PORT, () => {
-    console.log(`[Server] http://localhost:${PORT} | MONGODB_ENV=${process.env.MONGODB_ENV} | NODE_ENV=${process.env.NODE_ENV}`);
+    console.log(`[[Server] http://localhost:${PORT} | MONGODB_ENV=${process.env.MONGODB_ENV} | NODE_ENV=${process.env.NODE_ENV}`);
   });
 };
 

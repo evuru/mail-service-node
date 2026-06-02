@@ -8,7 +8,7 @@ export const sendRouter = Router();
 // ─── POST /v1/send — template-based ──────────────────────────────────────────
 
 sendRouter.post('/', requireApiKey, sendLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { template_slug, recipient, data } = req.body;
+  const { template_slug, recipient, data, version } = req.body;
 
   if (!template_slug || typeof template_slug !== 'string') {
     res.status(400).json({ error: 'template_slug (string) is required' });
@@ -22,9 +22,13 @@ sendRouter.post('/', requireApiKey, sendLimiter, async (req: Request, res: Respo
     res.status(400).json({ error: 'data must be a plain object' });
     return;
   }
+  if (version !== undefined && (typeof version !== 'number' || !Number.isInteger(version) || version < 1)) {
+    res.status(400).json({ error: 'version must be a positive integer' });
+    return;
+  }
 
   try {
-    const result = await sendEmail({ template_slug, recipient, data: data ?? {}, app: req.emailApp! });
+    const result = await sendEmail({ template_slug, recipient, data: data ?? {}, app: req.emailApp!, version });
     if (result.success) {
       res.json({ success: true, messageId: result.messageId });
     } else {

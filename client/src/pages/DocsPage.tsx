@@ -32,6 +32,7 @@ function DocsBody() {
           <SendRawSection />
           <TemplateVarsSection />
           <TemplatesApiSection />
+          <VersioningSection />
           <LogsApiSection />
           <SdkExportSection />
           <UnsubscribeSection />
@@ -52,6 +53,7 @@ function Sidebar() {
     { id: 'send-raw',          label: 'Send Raw (Custom)' },
     { id: 'template-variables',label: 'Template Variables' },
     { id: 'templates-api',     label: 'Templates API' },
+    { id: 'versioning',        label: 'Versioning' },
     { id: 'logs',              label: 'Send Logs' },
     { id: 'sdk-export',        label: 'SDK Export' },
     { id: 'unsubscribe',       label: 'Unsubscribe System' },
@@ -486,6 +488,7 @@ function SendSection() {
         { name: 'template_slug', type: 'string', required: true,  desc: 'Slug of the template to render. App-specific wins over global if both exist with the same slug.' },
         { name: 'recipient',     type: 'string', required: true,  desc: 'Recipient email address.' },
         { name: 'data',          type: 'object', required: false, desc: 'Key-value pairs injected into the Handlebars template. Auto-injected vars (appName, year, unsubscribeUrl) are added on top.' },
+        { name: 'version',       type: 'number', required: false, desc: 'Pin a specific template version number. Omit to use the active version (default). Useful for A/B tests, canary rollouts, or rollbacks.' },
       ]} />
 
       <H3>Response</H3>
@@ -592,13 +595,17 @@ function TemplatesApiSection() {
       <Para>All template and preview endpoints require <InlineCode>X-API-KEY</InlineCode>. Responses include both app-specific and global templates.</Para>
 
       <RouteTable rows={[
-        { method: 'GET',    path: '/v1/templates',        desc: 'List all templates visible to this app (own + global)' },
-        { method: 'POST',   path: '/v1/templates',        desc: 'Create a new template' },
-        { method: 'GET',    path: '/v1/templates/:slug',  desc: 'Get a single template by slug' },
-        { method: 'PUT',    path: '/v1/templates/:slug',  desc: 'Update a template' },
-        { method: 'DELETE', path: '/v1/templates/:slug',  desc: 'Delete a template' },
-        { method: 'POST',   path: '/v1/preview/:slug',    desc: 'Render a template without sending' },
-        { method: 'POST',   path: '/v1/preview/raw',      desc: 'Render arbitrary HTML + Handlebars' },
+        { method: 'GET',    path: '/v1/templates',                      desc: 'List all templates visible to this app (own + global)' },
+        { method: 'POST',   path: '/v1/templates',                      desc: 'Create a new template (auto-creates v1)' },
+        { method: 'GET',    path: '/v1/templates/:slug',                desc: 'Get a single template by slug' },
+        { method: 'PUT',    path: '/v1/templates/:slug',                desc: 'Save a new version (active version unchanged by default)' },
+        { method: 'DELETE', path: '/v1/templates/:slug',                desc: 'Delete a template and all its versions' },
+        { method: 'GET',    path: '/v1/templates/:slug/versions',       desc: 'List all versions with author, note, and created_at' },
+        { method: 'GET',    path: '/v1/templates/:slug/versions/:v',    desc: 'Get the full HTML/subject of a specific version' },
+        { method: 'PUT',    path: '/v1/templates/:slug/activate/:v',    desc: 'Set active version (what production sends)' },
+        { method: 'POST',   path: '/v1/templates/:slug/restore/:v',     desc: 'Clone a version as a new version (non-destructive rollback)' },
+        { method: 'POST',   path: '/v1/preview/:slug',                  desc: 'Render a template without sending (pass version to preview a specific version)' },
+        { method: 'POST',   path: '/v1/preview/raw',                    desc: 'Render arbitrary HTML + Handlebars' },
       ]} />
 
       <H3>Preview a template</H3>
@@ -621,6 +628,91 @@ function TemplatesApiSection() {
   "use_layout": true,
   "payload_schema_id": "schema-uuid"   // optional — links a Payload Schema
 }`} />
+    </DocSection>
+  );
+}
+
+function VersioningSection() {
+  return (
+    <DocSection id="versioning" title="Template & Schema Versioning">
+      <Para>
+        Every save to a template or payload schema creates an immutable version with an optional commit note and author.
+        The <InlineCode>active_version</InlineCode> determines what production sends — it is <strong>never automatically advanced</strong>.
+        You must explicitly activate a version. This means a save or autosave can never silently break a live integration.
+      </Para>
+
+      <InfoBox color="indigo">
+        <strong>Key invariant:</strong> saving a new version does not change what gets sent.
+        Drafts can be iterated on in parallel with production traffic. Rollbacks are instant — just re-activate an older version.
+      </InfoBox>
+
+      <H3>Version resolution at send time</H3>
+      <CodeBlock code={`// No version param → uses Template.active_version (the "production" version)
+POST /v1/send
+{ "template_slug": "welcome-email", "recipient": "user@example.com", "data": { ... } }
+
+// Pinned version → sends exactly that version regardless of which is active
+POST /v1/send
+{ "template_slug": "welcome-email", "recipient": "user@example.com", "data": { ... }, "version": 2 }`} />
+
+      <H3>Template version endpoints</H3>
+      <RouteTable rows={[
+        { method: 'GET',  path: '/v1/templates/:slug/versions',     desc: 'List all versions. Returns active_version + array of { version, note, author_id, created_at }.' },
+        { method: 'GET',  path: '/v1/templates/:slug/versions/:v',  desc: 'Full content (html, subject) of a specific version.' },
+        { method: 'PUT',  path: '/v1/templates/:slug/activate/:v',  desc: 'Set active_version to :v. This is what future sends will use.' },
+        { method: 'POST', path: '/v1/templates/:slug/restore/:v',   desc: 'Clone version :v as a new version. Non-destructive rollback.' },
+      ]} />
+
+      <H3>Schema version endpoints</H3>
+      <RouteTable rows={[
+        { method: 'GET',  path: '/v1/payload-schemas/:id/versions',     desc: 'List all schema versions.' },
+        { method: 'GET',  path: '/v1/payload-schemas/:id/versions/:v',  desc: 'Full fields array of a specific schema version.' },
+        { method: 'PUT',  path: '/v1/payload-schemas/:id/activate/:v',  desc: 'Set active schema version.' },
+        { method: 'POST', path: '/v1/payload-schemas/:id/restore/:v',   desc: 'Clone a schema version as a new version.' },
+      ]} />
+
+      <H3>Saving a new template version</H3>
+      <Para>
+        The standard <InlineCode>PUT /v1/templates/:slug</InlineCode> creates a version on every call when <InlineCode>body_html</InlineCode> or <InlineCode>subject</InlineCode> is provided.
+        Pass <InlineCode>note</InlineCode> to attach a commit message. Pass <InlineCode>activate: true</InlineCode> to immediately promote the new version to active.
+      </Para>
+      <CodeBlock label="PUT /v1/templates/welcome-email  (X-API-KEY required)" code={`{
+  "body_html": "<h1>New HTML content</h1>...",
+  "subject":   "Welcome, {{name}}!",
+  "note":      "Updated headline copy for March campaign",
+  "activate":  false    // default — active_version stays unchanged
+}`} />
+
+      <H3>Activating a version (UI workflow)</H3>
+      <CodeBlock label="PUT /v1/templates/welcome-email/activate/3  (X-API-KEY required)" code={`// No body required
+// Response
+{ "message": "Version 3 is now active", "active_version": 3 }`} />
+
+      <H3>Restoring an older version</H3>
+      <Para>
+        Restore clones an older version as a new version number (never overwrites history). After restoring, you can review and then activate.
+      </Para>
+      <CodeBlock label="POST /v1/templates/welcome-email/restore/1" code={`{ "note": "Rolling back to v1 — v2 had a rendering bug" }
+
+// Response
+{ "message": "Restored v1 as v4", "version": { ... } }`} />
+
+      <H3>Non-breaking migration</H3>
+      <Para>
+        Existing templates created before versioning was introduced are automatically assigned
+        <InlineCode>active_version = 1</InlineCode> when first saved via the editor.
+        API consumers sending without a <InlineCode>version</InlineCode> param continue working identically — they always get the active version.
+      </Para>
+
+      <H3>SDK usage with versions</H3>
+      <CodeBlock label="TypeScript SDK (generated)" code={`// Sends the currently active version (production default)
+await MailService.sendWelcomeEmail('user@example.com', { name: 'Alex' });
+
+// Pins version 2 — useful for canary tests or explicit rollback
+await MailService.sendWelcomeEmail('user@example.com', { name: 'Alex' }, 2);
+
+// Generic send with version
+await MailService.send('welcomeEmail', 'user@example.com', { name: 'Alex' }, 2);`} />
     </DocSection>
   );
 }
@@ -800,10 +892,10 @@ async function post(app: MailAppName, path: string, body: object) {
 }
 
 export class MailService {
-  // Generic send — use typed helpers below when possible
-  static send(template: MailTemplateName, recipient: string, data: Record<string, unknown> = {}) {
+  // Generic send. Pass version to pin a specific template version; omit for the active version.
+  static send(template: MailTemplateName, recipient: string, data: Record<string, unknown> = {}, version?: number) {
     const t = MAIL_TEMPLATES[template];
-    return post(t.app, '/v1/send', { template_slug: t.slug, recipient, data });
+    return post(t.app, '/v1/send', { template_slug: t.slug, recipient, data, ...(version !== undefined ? { version } : {}) });
   }
 
   static sendRaw(app: MailAppName, params: { subject: string; html: string; recipient: string; fromName?: string }) {
@@ -817,13 +909,13 @@ export class MailService {
     user_name: string;
     email: string;
     ctaUrl?: string;
-  }) {
-    return this.send('welcomeEmail', recipient, data);
+  }, version?: number) {
+    return this.send('welcomeEmail', recipient, data, version);
   }
 
   // orderConfirmation has no schema → generic data parameter
-  static sendOrderConfirmation(recipient: string, data: Record<string, unknown> = {}) {
-    return this.send('orderConfirmation', recipient, data);
+  static sendOrderConfirmation(recipient: string, data: Record<string, unknown> = {}, version?: number) {
+    return this.send('orderConfirmation', recipient, data, version);
   }
 }`} />
       </Collapsible>

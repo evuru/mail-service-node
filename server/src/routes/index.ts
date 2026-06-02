@@ -12,6 +12,7 @@ import { unsubscribeRouter } from './unsubscribe';
 import { platformRouter } from './platform';
 import { aiRouter } from './ai';
 import { orgsRouter } from './orgs';
+import { plansRouter, planAdminRouter } from './plans';
 import { apiLimiter, authLimiter, sendLimiter, aiLimiter } from '../middleware/rateLimit';
 
 export const apiRoutes = Router();
@@ -34,11 +35,17 @@ apiRoutes.use('/apps', appsRouter);
 // Organisation management (JWT auth)
 apiRoutes.use('/orgs', orgsRouter);
 
+// Public plans list
+apiRoutes.use('/plans', plansRouter);
+
 // Admin (JWT + superadmin)
 apiRoutes.use('/admin', adminRouter);
 
 // Platform config (JWT + superadmin — nested under admin)
 apiRoutes.use('/admin/platform', platformRouter);
+
+// Plan admin (JWT + superadmin — nested under admin)
+apiRoutes.use('/admin/plans', planAdminRouter);
 
 // AI generation — expensive LLM calls, tighter limit
 apiRoutes.use('/ai', aiLimiter, aiRouter);

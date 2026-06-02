@@ -2,10 +2,29 @@ import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
 import { connectDB } from './config/db';
 import { Template } from './models/Template';
+import { TemplateVersion } from './models/TemplateVersion';
 import { PayloadSchema } from './models/PayloadSchema';
+import { PayloadSchemaVersion } from './models/PayloadSchemaVersion';
 import { User, hashPassword } from './models/User';
 import { EmailApp } from './models/EmailApp';
 import { AppMember } from './models/AppMember';
+
+// ─── Payload Schemas ──────────────────────────────────────────────────────────
+
+// ─── System Schemas ───────────────────────────────────────────────────────────
+
+const SYSTEM_SCHEMAS = [
+  {
+    name: '_System: Email Verification',
+    description: 'Used by the platform to send email verification links to users. System schema — cannot be deleted.',
+    is_system: true,
+    fields: [
+      { key: 'user_name',  type: 'string', required: true,  example: 'Jane Doe',                                  description: 'User display name' },
+      { key: 'verify_url', type: 'string', required: true,  example: 'https://app.com/verify-email?token=abc123', description: 'Email verification URL' },
+      { key: 'app_name',   type: 'string', required: false, example: 'Mail Service',                              description: 'Platform name shown in the email' },
+    ],
+  },
+];
 
 // ─── Payload Schemas ──────────────────────────────────────────────────────────
 
@@ -101,6 +120,14 @@ const PASSWORD_RESET_BODY = `<h2>Reset Your Password</h2>
 </p>
 <p>This link expires in <strong>{{expiry}}</strong>. If you didn't request this, ignore this email.</p>`;
 
+const SYSTEM_VERIFY_BODY = `<h2>Verify Your Email Address</h2>
+<p>Hi {{user_name}},</p>
+<p>Please click the button below to verify your email address for <b>{{app_name}}</b>.</p>
+<p style="text-align: center; margin: 32px 0;">
+  <a href="{{verify_url}}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700;">Verify Email Address</a>
+</p>
+<p>This link expires in <strong>24 hours</strong>. If you did not create an account, you can safely ignore this email.</p>`;
+
 const VERIFICATION_BODY = `<h2>Verify Your Email</h2>
 <p>Hi {{user_name}},</p>
 <p>Use the one-time code below to verify your email address:</p>
@@ -181,6 +208,22 @@ const run = async () => {
     console.log(`[Seed] Created EmailApp "${APP_NAME}" (api_key: ${defaultApp.api_key})`);
   }
 
+  // 3a. Seed system schemas
+  const systemSchemaIds: Record<string, string> = {};
+  for (const s of SYSTEM_SCHEMAS) {
+    let schema = await PayloadSchema.findOne({ name: s.name });
+    if (schema) {
+      // Ensure is_system stays true even if it was manually cleared
+      if (!schema.is_system) { schema.is_system = true; await schema.save(); }
+      console.log(`[Seed] Skipping system schema "${s.name}" (exists)`);
+    } else {
+      schema = await PayloadSchema.create({ ...s, active_version: 1 });
+      await PayloadSchemaVersion.create({ schema_id: schema._id, version: 1, fields: s.fields, note: 'Initial version' });
+      console.log(`[Seed] Created system schema "${s.name}"`);
+    }
+    systemSchemaIds[s.name] = schema._id;
+  }
+
   // 3. Seed payload schemas
   const schemaIds: Record<string, string> = {};
   for (const s of PAYLOAD_SCHEMAS) {
@@ -188,10 +231,38 @@ const run = async () => {
     if (schema) {
       console.log(`[Seed] Skipping schema "${s.name}" (exists)`);
     } else {
-      schema = await PayloadSchema.create(s);
+      schema = await PayloadSchema.create({ ...s, active_version: 1 });
+      await PayloadSchemaVersion.create({ schema_id: schema._id, version: 1, fields: s.fields, note: 'Initial version' });
       console.log(`[Seed] Created schema "${s.name}"`);
     }
     schemaIds[s.name] = schema._id;
+  }
+
+  // 3b. Seed system templates
+  const systemTemplates = [
+    {
+      slug: '_system_verify_email',
+      name: 'System: Email Verification',
+      subject: 'Verify your email — {{app_name}}',
+      body_html: SYSTEM_VERIFY_BODY,
+      use_layout: true,
+      is_layout: false,
+      app_id: null,
+      is_global: true,
+      is_system: true,
+      payload_schema_id: systemSchemaIds['_System: Email Verification'],
+    },
+  ];
+  for (const t of systemTemplates) {
+    let exists = await Template.findOne({ slug: t.slug, app_id: null });
+    if (exists) {
+      if (!exists.is_system) { exists.is_system = true; await exists.save(); }
+      console.log(`[Seed] Skipping system template "${t.slug}" (exists)`);
+    } else {
+      const created = await Template.create({ ...t, active_version: 1 });
+      await TemplateVersion.create({ template_id: created._id, version: 1, html: t.body_html, subject: t.subject, note: 'Initial version' });
+      console.log(`[Seed] Created system template "${t.slug}"`);
+    }
   }
 
   // 4. Seed global templates (app_id: null, is_global: true)
@@ -256,7 +327,8 @@ const run = async () => {
   for (const t of templates) {
     const exists = await Template.findOne({ slug: t.slug, app_id: null });
     if (exists) { console.log(`[Seed] Skipping template "${t.slug}" (exists)`); continue; }
-    await Template.create(t);
+    const created = await Template.create({ ...t, active_version: 1 });
+    await TemplateVersion.create({ template_id: created._id, version: 1, html: t.body_html, subject: t.subject, note: 'Initial version' });
     console.log(`[Seed] Created global template "${t.slug}"`);
   }
 

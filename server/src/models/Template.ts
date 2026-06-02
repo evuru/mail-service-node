@@ -13,7 +13,9 @@ export interface ITemplate extends Document<string> {
   layout_slug?: string | null;
   app_id: string | null;       // null = global template (all apps can use it)
   is_global: boolean;          // true = visible to all apps even if app_id is set
+  is_system: boolean;          // true = modifiable but never deletable
   payload_schema_id?: string;
+  active_version: number;      // 0 = no versions yet; ≥1 = version used by send route
   created_at: Date;
   updated_at: Date;
 }
@@ -36,7 +38,9 @@ const TemplateSchema = new Schema<ITemplate>(
     layout_slug: { type: String, default: null },
     app_id: { type: String, ref: 'EmailApp', default: null },
     is_global: { type: Boolean, default: false },
+    is_system: { type: Boolean, default: false },
     payload_schema_id: { type: String, ref: 'PayloadSchema', default: null },
+    active_version: { type: Number, default: 0 },
   },
   {
     _id: false,

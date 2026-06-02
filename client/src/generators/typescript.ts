@@ -64,9 +64,9 @@ function genService(config: ExportConfig): string {
               return `    ${f.key}${f.required ? '' : '?'}: ${tsType};`;
             })
             .join('\n');
-          return `  static ${methodName}(recipient: string, data: {\n${fields}\n  }) {\n    return this.send('${t.camelName}', recipient, data);\n  }`;
+          return `  static ${methodName}(recipient: string, data: {\n${fields}\n  }, version?: number) {\n    return this.send('${t.camelName}', recipient, data, version);\n  }`;
         }
-        return `  static ${methodName}(recipient: string, data: Record<string, unknown> = {}) {\n    return this.send('${t.camelName}', recipient, data);\n  }`;
+        return `  static ${methodName}(recipient: string, data: Record<string, unknown> = {}, version?: number) {\n    return this.send('${t.camelName}', recipient, data, version);\n  }`;
       }),
     )
     .join('\n\n');
@@ -111,9 +111,10 @@ async function post(
 }
 
 export class MailService {
-  static send(template: MailTemplateName, recipient: string, data: Record<string, unknown> = {}) {
+  // Send an email. Pass version to pin a specific template version; omit to use the active version.
+  static send(template: MailTemplateName, recipient: string, data: Record<string, unknown> = {}, version?: number) {
     const t = MAIL_TEMPLATES[template];
-    return post(t.app, '/v1/send', { template_slug: t.slug, recipient, data });
+    return post(t.app, '/v1/send', { template_slug: t.slug, recipient, data, ...(version !== undefined ? { version } : {}) });
   }
 
   static sendRaw(

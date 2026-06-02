@@ -2,6 +2,10 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { Organization, toSlug } from '../models/Organization';
 import { User } from '../models/User';
+import { Plan } from '../models/Plan';
+import { EmailApp } from '../models/EmailApp';
+import { Template } from '../models/Template';
+import { EmailLog } from '../models/EmailLog';
 import type { LlmProvider } from '../models/PlatformConfig';
 import { callLlm } from '../services/llmService';
 
@@ -242,6 +246,114 @@ orgsRouter.post('/me/llm/test', async (req: Request, res: Response): Promise<voi
     res.json({ ok: true, response: result.trim() });
   } catch (err) {
     res.status(502).json({ ok: false, error: (err as Error).message });
+  }
+});
+
+// ─── Get org verification config ─────────────────────────────────────────────
+
+orgsRouter.get('/me/verification', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can view verification settings' });
+    return;
+  }
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+    res.json({ require_phone: org.verification?.require_phone ?? false });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch verification settings' });
+  }
+});
+
+// ─── Update org verification config ──────────────────────────────────────────
+
+orgsRouter.put('/me/verification', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can update verification settings' });
+    return;
+  }
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+    const { require_phone } = req.body;
+    if (require_phone !== undefined) org.verification.require_phone = Boolean(require_phone);
+    await org.save();
+    res.json({ require_phone: org.verification.require_phone });
+  } catch {
+    res.status(500).json({ error: 'Failed to update verification settings' });
+  }
+});
+
+// ─── Get current plan + org usage stats ──────────────────────────────────────
+
+orgsRouter.get('/me/plan', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id) { res.status(404).json({ error: 'No organisation' }); return; }
+  try {
+    const org = await Organization.findById(user.org_id).lean();
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+
+    const plan = org.plan_id ? await Plan.findById(org.plan_id).lean() : null;
+    const expired = org.plan_expires_at && org.plan_expires_at < new Date();
+
+    // Aggregate org-level usage
+    const orgMembers = await User.find({ org_id: user.org_id }, '_id').lean();
+    const orgMemberIds = orgMembers.map((u) => u._id);
+    const member_count = orgMembers.length;
+
+    const orgApps = await EmailApp.find({ owner_id: { $in: orgMemberIds } }, '_id').lean();
+    const orgAppIds = orgApps.map((a) => a._id);
+    const app_count = orgApps.length;
+
+    const template_count = await Template.countDocuments({ app_id: { $in: orgAppIds } });
+
+    const monthAgo = new Date();
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    const emails_month = await EmailLog.countDocuments({
+      app_id: { $in: orgAppIds },
+      sent_at: { $gte: monthAgo },
+    });
+
+    res.json({
+      plan: expired ? null : plan,
+      plan_id: expired ? null : (org.plan_id ?? null),
+      plan_expires_at: org.plan_expires_at ?? null,
+      usage: { member_count, app_count, template_count, emails_month },
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch plan' });
+  }
+});
+
+// POST /orgs/me/plan — self-serve plan selection (no payment — honour system)
+orgsRouter.post('/me/plan', async (req: Request, res: Response): Promise<void> => {
+  const user = req.user!;
+  if (!user.org_id || !user.is_org_admin) {
+    res.status(403).json({ error: 'Only org admins can change the plan' });
+    return;
+  }
+  const { plan_id } = req.body;
+  try {
+    const org = await Organization.findById(user.org_id);
+    if (!org) { res.status(404).json({ error: 'Organisation not found' }); return; }
+
+    if (plan_id) {
+      const plan = await Plan.findOne({ _id: plan_id, is_active: true, is_public: true });
+      if (!plan) { res.status(404).json({ error: 'Plan not found or unavailable' }); return; }
+      org.plan_id = plan._id;
+      org.plan_expires_at = undefined;
+    } else {
+      // Downgrade to no plan
+      org.plan_id = undefined;
+      org.plan_expires_at = undefined;
+    }
+
+    await org.save();
+    res.json({ ok: true, plan_id: org.plan_id ?? null });
+  } catch {
+    res.status(500).json({ error: 'Failed to update plan' });
   }
 });
 

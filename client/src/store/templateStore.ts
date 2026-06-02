@@ -2,13 +2,15 @@ import { create } from 'zustand';
 import type { Template } from '../types';
 import client from '../api/client';
 
+type UpdateTemplateData = Partial<Template> & { note?: string; activate?: boolean };
+
 interface TemplateState {
   templates: Template[];
   isLoading: boolean;
   error: string | null;
   fetchTemplates: () => Promise<void>;
   createTemplate: (data: Partial<Template>) => Promise<Template>;
-  updateTemplate: (slug: string, data: Partial<Template>) => Promise<Template>;
+  updateTemplate: (slug: string, data: UpdateTemplateData) => Promise<Template>;
   deleteTemplate: (slug: string) => Promise<void>;
   clearError: () => void;
 }
@@ -36,7 +38,7 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
 
   updateTemplate: async (slug, templateData) => {
     const { data } = await client.put<Template>(`/templates/${slug}`, templateData);
-    set((s) => ({ templates: s.templates.map((t) => (t.slug === slug ? data : t)) }));
+    set((s) => ({ templates: s.templates.map((t) => (t.slug === slug ? { ...t, ...data } : t)) }));
     return data;
   },
 

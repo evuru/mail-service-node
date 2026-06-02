@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
+import { UserDashboardPage } from './pages/UserDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { TemplateEditor } from './pages/TemplateEditor';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SchemasPage } from './pages/SchemasPage';
 import { AppsPage } from './pages/AppsPage';
 import { AppSettingsPage } from './pages/AppSettingsPage';
@@ -19,6 +22,8 @@ import { DocsPage } from './pages/DocsPage';
 import { PricingPage } from './pages/PricingPage';
 import { PlatformSettingsPage } from './pages/PlatformSettingsPage';
 import SDKExportPage from './pages/SDKExportPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { AdminPlansPage } from './pages/AdminPlansPage';
 
 export default function App() {
   return (
@@ -32,6 +37,7 @@ export default function App() {
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         {/* Org setup — authenticated but outside main layout */}
         <Route element={<ProtectedRoute />}>
@@ -41,19 +47,23 @@ export default function App() {
         {/* Protected app shell */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="templates" element={<Dashboard />} />
+            <Route path="dashboard"     element={<UserDashboardPage />} />
+            <Route path="templates"     element={<Dashboard />} />
             <Route path="templates/new" element={<TemplateEditor />} />
             <Route path="templates/:slug" element={<TemplateEditor />} />
-            <Route path="schemas" element={<SchemasPage />} />
-            <Route path="logs" element={<LogsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="apps" element={<AppsPage />} />
+            <Route path="schemas"       element={<SchemasPage />} />
+            <Route path="logs"          element={<LogsPage />} />
+            <Route path="settings"      element={<SettingsPage />} />
+            <Route path="profile"       element={<ProfilePage />} />
+            <Route path="apps"          element={<AppsPage />} />
             <Route path="apps/:id/settings" element={<AppSettingsPage />} />
-            <Route path="sdk-export" element={<SDKExportPage />} />
+            <Route path="sdk-export"    element={<SDKExportPage />} />
 
             {/* Superadmin only */}
             <Route element={<ProtectedRoute requireSuperadmin />}>
-              <Route path="users" element={<UsersPage />} />
+              <Route path="admin"             element={<AdminDashboardPage />} />
+              <Route path="admin/plans"       element={<AdminPlansPage />} />
+              <Route path="users"             element={<UsersPage />} />
               <Route path="platform-settings" element={<PlatformSettingsPage />} />
             </Route>
           </Route>

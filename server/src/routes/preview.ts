@@ -8,10 +8,10 @@ export const previewRouter = Router();
 
 // Render a saved template with data (no DB log)
 previewRouter.post('/', requireApiKey, async (req: Request, res: Response): Promise<void> => {
-  const { template_slug, data = {} } = req.body;
+  const { template_slug, data = {}, version } = req.body;
   if (!template_slug) { res.status(400).json({ error: 'template_slug is required' }); return; }
   try {
-    const result = await renderTemplate(template_slug, data, req.emailApp!);
+    const result = await renderTemplate(template_slug, data, req.emailApp!, version);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });

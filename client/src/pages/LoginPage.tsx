@@ -1,17 +1,25 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail } from 'lucide-react';
+import { Mail, ArrowRight, CheckCircle2, ArrowLeft, Zap, Shield, BarChart2 } from 'lucide-react';
+import { PasswordInput } from '../components/PasswordInput';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import client from '../api/client';
 import type { User, EmailApp } from '../types';
 
+const features = [
+  { Icon: Zap,        text: 'Multi-app email template management'  },
+  { Icon: Shield,     text: 'Per-app SMTP with API key auth'        },
+  { Icon: BarChart2,  text: 'Full delivery logs and analytics'      },
+  { Icon: CheckCircle2, text: 'Handlebars + schema-driven payloads' },
+];
+
 export function LoginPage() {
-  const [email, setEmail] = useState('admin@example.com');
+  const [email, setEmail]       = useState('admin@example.com');
   const [password, setPassword] = useState('changeme123');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const { setAuth }             = useAuthStore();
   const { setApps, setSelectedApp } = useAppStore();
   const navigate = useNavigate();
 
@@ -22,16 +30,11 @@ export function LoginPage() {
     try {
       const res = await client.post<{ token: string; user: User }>('/auth/login', { email, password });
       setAuth(res.data.token, res.data.user);
-
-      // Load apps and pre-select first
       try {
         const appsRes = await client.get<EmailApp[]>('/apps');
         setApps(appsRes.data);
         if (appsRes.data.length > 0) setSelectedApp(appsRes.data[0]);
-      } catch {
-        // not a blocker
-      }
-
+      } catch { /* non-blocker */ }
       navigate('/templates');
     } catch (err) {
       setError((err as Error).message);
@@ -41,62 +44,119 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <Mail className="w-10 h-10 mx-auto text-blue-600" />
-          <h1 className="mt-3 text-2xl font-bold text-gray-900">Mail Service</h1>
-          <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+
+      {/* ── Mobile brand header (hidden on desktop) ── */}
+      <div className="lg:hidden bg-gradient-to-br from-brand-700 via-brand-600 to-blue-500 px-6 pt-8 pb-7 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
+        <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full bg-white/5" />
+        <Link to="/" className="relative flex items-center gap-3 w-fit">
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-white font-bold text-lg tracking-tight">Mail Service</span>
+        </Link>
+        <p className="relative mt-3 text-blue-100 text-sm leading-relaxed">
+          Transactional email, done right.
+        </p>
+        <Link to="/" className="relative mt-4 inline-flex items-center gap-1.5 text-xs text-blue-200 hover:text-white transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to homepage
+        </Link>
+      </div>
+
+      {/* ── Desktop brand panel (hidden on mobile) ── */}
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[42%] flex-col bg-gradient-to-br from-brand-700 via-brand-600 to-blue-500 p-10 relative overflow-hidden">
+        {/* background texture rings */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute top-1/3 -right-32 w-80 h-80 rounded-full bg-white/5" />
+        <div className="absolute -bottom-20 left-1/4 w-64 h-64 rounded-full bg-white/5" />
+
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-3 z-10 group w-fit">
+          <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:bg-white/30 transition-colors">
+            <Mail className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-white font-bold text-lg tracking-tight">Mail Service</span>
+        </Link>
+
+        {/* Hero copy */}
+        <div className="flex-1 flex flex-col justify-center z-10 mt-8">
+          <h2 className="text-3xl font-bold text-white leading-snug">
+            Transactional email,<br />done right.
+          </h2>
+          <p className="mt-3 text-blue-100 text-sm leading-relaxed max-w-xs">
+            Template-driven email infrastructure for your apps. Manage, preview, and send from one place.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {features.map(({ Icon, text }) => (
+              <li key={text} className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-white/15 flex items-center justify-center shrink-0">
+                  <Icon className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-sm text-blue-100">{text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-600">
-                {error}
+        {/* Back to site */}
+        <Link
+          to="/"
+          className="z-10 flex items-center gap-1.5 text-xs text-blue-200 hover:text-white transition-colors w-fit"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to homepage
+        </Link>
+      </div>
+
+      {/* ── Form panel ── */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 py-10 bg-[var(--bg)]">
+        <div className="w-full max-w-sm animate-slide-up">
+          <div className="mb-7">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Sign in to your account to continue</p>
+          </div>
+
+          <div className="card p-6 shadow-modal">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20
+                                border border-red-200 dark:border-red-800
+                                text-sm text-red-600 dark:text-red-400 animate-fade-in">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="input-label">Email address</label>
+                <input
+                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  required autoFocus placeholder="you@example.com" className="input"
+                />
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="you@example.com"
-              />
-            </div>
+              <div>
+                <label className="input-label">Password</label>
+                <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)}
+                  required placeholder="••••••••" />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
-              />
-            </div>
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
+                {loading ? 'Signing in…' : (
+                  <>Sign in <ArrowRight className="w-4 h-4" /></>
+                )}
+              </button>
+            </form>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-gray-500 mt-4">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-blue-600 hover:underline font-medium">
-              Register
-            </Link>
-          </p>
+            <p className="text-center text-sm text-[var(--text-muted)] mt-5">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
+                Register
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

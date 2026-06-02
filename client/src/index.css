@@ -1,46 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
+/* ── CSS design tokens ─────────────────────────────────────── */
+:root {
+  /* surfaces */
+  --bg:               #f8fafc;
+  --surface:          #ffffff;
+  --surface-raised:   #f1f5f9;
+  --surface-overlay:  #ffffff;
+  /* borders */
+  --border:           #e2e8f0;
+  --border-subtle:    #f1f5f9;
+  /* text */
+  --text-primary:     #0f172a;
+  --text-secondary:   #475569;
+  --text-muted:       #94a3b8;
+  /* sidebar */
+  --sidebar-bg:       #ffffff;
+  --sidebar-border:   #e2e8f0;
+  --nav-active-bg:    #eff6ff;
+  --nav-active-text:  #2563eb;
+  --nav-hover-bg:     #f8fafc;
 }
 
-html,
-body,
-#root {
+.dark {
+  --bg:               #0f172a;
+  --surface:          #1e293b;
+  --surface-raised:   #273548;
+  --surface-overlay:  #1e293b;
+  --border:           #334155;
+  --border-subtle:    #1e293b;
+  --text-primary:     #f1f5f9;
+  --text-secondary:   #94a3b8;
+  --text-muted:       #64748b;
+  --sidebar-bg:       #1e293b;
+  --sidebar-border:   #334155;
+  --nav-active-bg:    rgba(59,130,246,0.15);
+  --nav-active-text:  #60a5fa;
+  --nav-hover-bg:     rgba(255,255,255,0.04);
+}
+
+/* ── Global resets ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
   height: 100%;
   margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Monaco color picker — escape the editor's overflow clipping */
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ── Scrollbars ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Reusable component classes ────────────────────────────── */
+@layer components {
+  /* Card */
+  .card {
+    @apply bg-white dark:bg-[#1e293b] border border-[#e2e8f0] dark:border-[#334155]
+           rounded-2xl shadow-card;
+  }
+  .card-hover {
+    @apply hover:shadow-card-hover hover:border-brand-300 dark:hover:border-brand-600
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800
+           shadow-sm hover:shadow-md;
+  }
+  .btn-secondary {
+    @apply btn bg-white dark:bg-[#273548] text-[#0f172a] dark:text-[#f1f5f9]
+           border border-[#e2e8f0] dark:border-[#334155]
+           hover:bg-[#f8fafc] dark:hover:bg-[#334155];
+  }
+  .btn-ghost {
+    @apply btn text-[#475569] dark:text-[#94a3b8]
+           hover:bg-[#f1f5f9] dark:hover:bg-[#273548]
+           hover:text-[#0f172a] dark:hover:text-[#f1f5f9];
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-ai {
+    @apply btn bg-ai-600 text-white hover:bg-ai-500 shadow-sm;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2 rounded-xl text-sm
+           bg-white dark:bg-[#273548]
+           border border-[#e2e8f0] dark:border-[#334155]
+           text-[#0f172a] dark:text-[#f1f5f9]
+           placeholder:text-[#94a3b8]
+           focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500
+           transition-colors;
+  }
+  .input-label {
+    @apply block text-sm font-medium text-[#475569] dark:text-[#94a3b8] mb-1.5;
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium
+           transition-all duration-150 text-[#475569] dark:text-[#94a3b8]
+           hover:bg-[#f8fafc] dark:hover:bg-[rgba(255,255,255,0.04)]
+           hover:text-[#0f172a] dark:hover:text-[#f1f5f9];
+  }
+  .nav-link-active {
+    @apply bg-[#eff6ff] dark:bg-[rgba(59,130,246,0.15)]
+           text-brand-700 dark:text-brand-400 font-semibold;
+  }
+
+  /* Page shell */
+  .page-header {
+    @apply flex items-center justify-between h-14 px-5
+           bg-white dark:bg-[#1e293b]
+           border-b border-[#e2e8f0] dark:border-[#334155]
+           shrink-0;
+  }
+  .page-content {
+    @apply flex-1 overflow-y-auto p-6;
+  }
+
+  /* Empty state */
+  .empty-state {
+    @apply flex flex-col items-center justify-center h-48
+           text-[#94a3b8] dark:text-[#64748b] gap-3;
+  }
+
+  /* Section divider label */
+  .section-label {
+    @apply px-3 py-1 text-xs font-semibold uppercase tracking-widest
+           text-[#94a3b8] dark:text-[#64748b];
+  }
+}
+
+/* ── Monaco editor tweaks ──────────────────────────────────── */
 .monaco-editor .colorpicker-widget,
 .monaco-editor .colorpicker-color-decoration-hover-data {
   z-index: 99999 !important;
 }
-.monaco-editor-overflowguard {
-  overflow: visible !important;
-}
-.monaco-editor .overflowingContentWidgets {
-  z-index: 99999 !important;
-}
-/* Re-clip the internal scroll area so the editor still scrolls normally */
-.monaco-editor .monaco-scrollable-element {
-  overflow: clip !important;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
+.monaco-editor-overflowguard { overflow: visible !important; }
+.monaco-editor .overflowingContentWidgets { z-index: 99999 !important; }
+.monaco-editor .monaco-scrollable-element { overflow: clip !important; }

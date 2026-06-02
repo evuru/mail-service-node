@@ -30,28 +30,27 @@ export function LogsPage() {
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const actions = (
-    <button
-      onClick={fetchLogs}
-      className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-    >
-      Refresh
-    </button>
-  );
-
   return (
     <>
-      <Header actions={actions} />
-      <main className="flex-1 overflow-y-auto p-6">
+      <Header
+        actions={
+          <button onClick={fetchLogs} className="btn-secondary">
+            Refresh
+          </button>
+        }
+      />
+      <main className="page-content">
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-3 mb-5">
+          <div className="flex gap-1 bg-[var(--surface-raised)] rounded-lg p-1">
             {(['all', 'success', 'failed'] as StatusFilter[]).map((s) => (
               <button
                 key={s}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
                 className={`px-3 py-1 text-sm rounded-md font-medium transition-colors ${
-                  statusFilter === s ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  statusFilter === s
+                    ? 'bg-[var(--surface)] shadow-sm text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                 }`}
               >
                 {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -61,37 +60,36 @@ export function LogsPage() {
           <input
             value={slugFilter}
             onChange={(e) => { setSlugFilter(e.target.value); setPage(1); }}
-            placeholder="Filter by template slug..."
-            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
+            placeholder="Filter by template slug…"
+            className="input w-56"
           />
           {data && (
-            <span className="text-sm text-gray-500 ml-auto">
-              {data.total} total result{data.total !== 1 ? 's' : ''}
+            <span className="text-sm text-[var(--text-muted)] ml-auto">
+              {data.total} result{data.total !== 1 ? 's' : ''}
             </span>
           )}
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-gray-200">
+        <div className="card overflow-hidden">
           <LogsTable logs={data?.logs ?? []} isLoading={isLoading} />
 
-          {/* Pagination */}
           {data && data.pages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)]">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="btn-ghost disabled:opacity-40"
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-[var(--text-secondary)]">
                 Page {data.page} of {data.pages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(data.pages, p + 1))}
                 disabled={page === data.pages}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                className="btn-ghost disabled:opacity-40"
               >
                 Next
               </button>

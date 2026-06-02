@@ -14,6 +14,12 @@ export interface IUser extends Document<string> {
   org_id?: string;
   is_org_admin?: boolean;
   profile_image_base64?: string;
+  phone?: string;
+  phone_verified: boolean;
+  email_verified: boolean;
+  email_verified_at?: Date;
+  email_verify_token?: string;
+  email_verify_token_expires?: Date;
   created_at: Date;
   updated_at: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -30,6 +36,12 @@ const UserSchema = new Schema<IUser>(
     org_id:                { type: String, ref: 'Organization', default: null },
     is_org_admin:          { type: Boolean, default: false },
     profile_image_base64:  { type: String, default: '' },
+    phone:                 { type: String, default: '' },
+    phone_verified:        { type: Boolean, default: false },
+    email_verified:               { type: Boolean, default: false },
+    email_verified_at:            { type: Date },
+    email_verify_token:           { type: String, default: '' },
+    email_verify_token_expires:   { type: Date },
   },
   {
     _id: false,

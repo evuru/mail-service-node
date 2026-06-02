@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { ConfirmModal } from '../components/ConfirmModal';
 import client from '../api/client';
 import type { User, Organization } from '../types';
 
@@ -9,6 +10,7 @@ export function OrgSetupPage() {
   const [orgName, setOrgName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { setAuth, token, clearAuth } = useAuthStore();
   const navigate = useNavigate();
 
@@ -76,12 +78,22 @@ export function OrgSetupPage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Wrong account?{' '}
-            <button onClick={handleLogout} className="text-blue-600 hover:underline font-medium">
+            <button onClick={() => setShowLogoutConfirm(true)} className="text-blue-600 hover:underline font-medium">
               Sign out
             </button>
           </p>
         </div>
       </div>
+      {showLogoutConfirm && (
+        <ConfirmModal
+          title="Sign out"
+          message="Are you sure you want to sign out?"
+          confirmLabel="Sign out"
+          danger
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
     </div>
   );
 }

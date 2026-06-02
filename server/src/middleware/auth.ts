@@ -64,3 +64,15 @@ export const requireSuperadmin = (req: Request, res: Response, next: NextFunctio
   }
   next();
 };
+
+// Attaches req.user if a valid Bearer token is present; never blocks the request.
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  const header = req.headers['authorization'];
+  if (!header?.startsWith('Bearer ')) { next(); return; }
+  try {
+    const payload = jwt.verify(header.slice(7), getSecret()) as { sub: string };
+    const user = await User.findById(payload.sub);
+    if (user?.is_active) req.user = user;
+  } catch { /* ignore invalid / expired tokens */ }
+  next();
+};

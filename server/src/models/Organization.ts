@@ -10,6 +10,10 @@ export interface IOrgLlm {
   enabled: boolean;
 }
 
+export interface IOrgVerification {
+  require_phone: boolean;
+}
+
 export interface IOrganization extends Document<string> {
   _id: string;
   name: string;
@@ -17,6 +21,9 @@ export interface IOrganization extends Document<string> {
   logo_base64?: string;
   created_by: string;
   llm: IOrgLlm;
+  verification: IOrgVerification;
+  plan_id?: string;           // ref Plan — null = free/default
+  plan_expires_at?: Date;     // null = never (manual assignment or perpetual)
   created_at: Date;
   updated_at: Date;
 }
@@ -39,6 +46,11 @@ const OrganizationSchema = new Schema<IOrganization>(
       model:    { type: String, default: '' },
       enabled:  { type: Boolean, default: false },
     },
+    verification: {
+      require_phone: { type: Boolean, default: false },
+    },
+    plan_id:         { type: String, ref: 'Plan', default: null },
+    plan_expires_at: { type: Date, default: null },
   },
   {
     _id: false,

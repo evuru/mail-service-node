@@ -15,12 +15,14 @@ export interface IPayloadSchema extends Document<string> {
   _id: string;
   name: string;
   description: string;
+  is_system: boolean;
   fields: ISchemaField[];
+  active_version: number;  // 0 = no versions yet; ≥1 = current active version number
   created_at: Date;
   updated_at: Date;
 }
 
-const SchemaFieldSchema = new Schema<ISchemaField>(
+export const SchemaFieldSchema = new Schema<ISchemaField>(
   {
     key: { type: String, required: true, trim: true },
     type: { type: String, enum: ['string', 'number', 'boolean', 'array', 'object'], default: 'string' },
@@ -36,7 +38,9 @@ const PayloadSchemaSchema = new Schema<IPayloadSchema>(
     _id: { type: String, default: uuidv4 },
     name: { type: String, required: true, unique: true, trim: true },
     description: { type: String, default: '' },
+    is_system: { type: Boolean, default: false },
     fields: { type: [SchemaFieldSchema], default: [] },
+    active_version: { type: Number, default: 0 },
   },
   {
     _id: false,
