@@ -56,7 +56,6 @@ const PlanSchema = new Schema<IPlan>(
   { _id: false, timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
 
-PlanSchema.index({ slug: 1 }, { unique: true });
 PlanSchema.index({ is_public: 1, sort_order: 1 });
 
 export const Plan = model<IPlan>('Plan', PlanSchema);

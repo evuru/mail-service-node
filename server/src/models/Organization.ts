@@ -58,8 +58,6 @@ const OrganizationSchema = new Schema<IOrganization>(
   },
 );
 
-OrganizationSchema.index({ slug: 1 }, { unique: true });
-
 export const Organization = model<IOrganization>('Organization', OrganizationSchema);
 
 export function toSlug(name: string): string {

@@ -133,14 +133,14 @@ export function LoginPage() {
                 <label className="input-label">Email address</label>
                 <input
                   type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  required autoFocus placeholder="you@example.com" className="input"
+                  required autoFocus placeholder={import.meta.env.DEV ? 'you@example.com' : undefined} className="input"
                 />
               </div>
 
               <div>
                 <label className="input-label">Password</label>
                 <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)}
-                  required placeholder="••••••••" />
+                  required placeholder={import.meta.env.DEV ? '••••••••' : undefined} />
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
