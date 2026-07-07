@@ -172,6 +172,14 @@ export interface AppPermissions {
   can_manage: boolean;
 }
 
+export interface AppAlias {
+  name: string;
+  from_email: string;
+  from_name: string;
+  verified: boolean;
+  token_expires_at?: string | null;
+}
+
 export interface EmailApp {
   _id: string;
   app_name: string;
@@ -185,6 +193,7 @@ export interface EmailApp {
   smtp_pass: string;
   smtp_from_name: string;
   smtp_from_email: string;
+  aliases?: AppAlias[];
   llm_enabled: boolean;
   llm_min_role: MemberRole;
   my_role?: MemberRole;

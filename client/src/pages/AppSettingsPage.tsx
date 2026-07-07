@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, Clock, RefreshCw, Trash2 } from 'lucide-react';
 import { Header } from '../components/Header';
 import { SmtpProviderPicker } from '../components/SmtpProviderPicker';
 import { PasswordInput } from '../components/PasswordInput';
 import { useAppStore } from '../store/appStore';
 import client from '../api/client';
-import type { EmailApp, MemberRole, SmtpProvider } from '../types';
+import type { AppAlias, EmailApp, MemberRole, SmtpProvider } from '../types';
 
-type Tab = 'general' | 'smtp' | 'apikey' | 'members' | 'dns' | 'ai';
+type Tab = 'general' | 'smtp' | 'apikey' | 'members' | 'dns' | 'ai' | 'aliases';
 
 interface MemberRow {
   _id: string;
@@ -23,8 +24,9 @@ interface MemberRow {
 export function AppSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { updateApp } = useAppStore();
-  const [tab, setTab] = useState<Tab>('general');
+  const [tab, setTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'general');
   const [app, setApp] = useState<EmailApp | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,12 +55,20 @@ export function AppSettingsPage() {
   const [llmEnabled, setLlmEnabled]   = useState(false);
   const [llmMinRole, setLlmMinRole]   = useState<MemberRole>('editor');
 
+  const [aliases, setAliases]               = useState<AppAlias[]>([]);
+  const [aliasName, setAliasName]           = useState('');
+  const [aliasEmail, setAliasEmail]         = useState('');
+  const [aliasFromName, setAliasFromName]   = useState('');
+  const [aliasAdding, setAliasAdding]       = useState(false);
+  const [aliasResending, setAliasResending] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
     Promise.all([
       client.get<EmailApp>(`/apps/${id}`),
       client.get<MemberRow[]>(`/apps/${id}/members`),
-    ]).then(([appRes, membRes]) => {
+      client.get<AppAlias[]>(`/apps/${id}/aliases`),
+    ]).then(([appRes, membRes, aliasRes]) => {
       const a = appRes.data;
       setApp(a);
       setAppName(a.app_name);
@@ -73,6 +83,7 @@ export function AppSettingsPage() {
       setLlmEnabled(a.llm_enabled ?? false);
       setLlmMinRole(a.llm_min_role ?? 'editor');
       setMembers(membRes.data);
+      setAliases(aliasRes.data);
     }).catch(() => setError('Failed to load app')).finally(() => setLoading(false));
   }, [id]);
 
@@ -137,11 +148,40 @@ export function AppSettingsPage() {
     } catch (err) { setError((err as Error).message); } finally { setSaving(false); }
   };
 
+  const addAlias = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAliasAdding(true); setError('');
+    try {
+      const res = await client.post<AppAlias>(`/apps/${id}/aliases`, { name: aliasName, from_email: aliasEmail, from_name: aliasFromName });
+      setAliases((prev) => [...prev, res.data]);
+      setAliasName(''); setAliasEmail(''); setAliasFromName('');
+      flash('Alias added — check your inbox to verify');
+    } catch (err) { setError((err as Error).message); } finally { setAliasAdding(false); }
+  };
+
+  const deleteAlias = async (name: string) => {
+    if (!confirm(`Delete alias "${name}"?`)) return;
+    try {
+      await client.delete(`/apps/${id}/aliases/${name}`);
+      setAliases((prev) => prev.filter((a) => a.name !== name));
+      flash('Alias deleted');
+    } catch (err) { setError((err as Error).message); }
+  };
+
+  const resendAlias = async (name: string) => {
+    setAliasResending(name); setError('');
+    try {
+      await client.post(`/apps/${id}/aliases/${name}/resend`);
+      flash('Verification email resent');
+    } catch (err) { setError((err as Error).message); } finally { setAliasResending(null); }
+  };
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'smtp',    label: 'SMTP' },
     { id: 'apikey',  label: 'API Key' },
     { id: 'members', label: 'Members' },
+    { id: 'aliases', label: 'Aliases' },
     { id: 'ai',      label: 'AI' },
     { id: 'dns',     label: 'DNS Guide' },
   ];
@@ -419,6 +459,92 @@ export function AppSettingsPage() {
               <button onClick={saveAi} disabled={saving} className="btn-primary disabled:opacity-50">
                 {saving ? 'Saving…' : 'Save AI settings'}
               </button>
+            </div>
+          )}
+
+          {/* ── Aliases ── */}
+          {tab === 'aliases' && (
+            <div className="card p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sender Aliases</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Aliases let you send as different addresses (e.g. <code className="bg-[var(--surface-raised)] px-1 rounded">billing@</code>, <code className="bg-[var(--surface-raised)] px-1 rounded">support@</code>) using this app's SMTP connection.
+                  Each alias must be verified before it can be used. Pass <code className="bg-[var(--surface-raised)] px-1 rounded">"alias": "name"</code> in your send call.
+                </p>
+              </div>
+
+              {/* Alias list */}
+              {aliases.length > 0 && (
+                <div className="space-y-2">
+                  {aliases.map((a) => (
+                    <div key={a.name} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)]">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-sm font-mono font-semibold text-[var(--text-primary)]">{a.name}</code>
+                          <span className="text-xs text-[var(--text-muted)]">→ {a.from_email}{a.from_name ? ` (${a.from_name})` : ''}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {a.verified ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3" /> Verified
+                          </span>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" /> Pending
+                            </span>
+                            <button
+                              onClick={() => resendAlias(a.name)}
+                              disabled={aliasResending === a.name}
+                              className="btn-ghost text-xs py-1 px-2 gap-1"
+                              title="Resend verification email"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${aliasResending === a.name ? 'animate-spin' : ''}`} />
+                              Resend
+                            </button>
+                          </>
+                        )}
+                        <button onClick={() => deleteAlias(a.name)} className="btn-ghost text-xs py-1 px-2 text-red-500 hover:text-red-600">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add alias form */}
+              <form onSubmit={addAlias} className="space-y-3 pt-1 border-t border-[var(--border)]">
+                <p className="text-xs font-medium text-[var(--text-secondary)] pt-1">Add a new alias</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="input-label">Alias name <span className="text-[var(--text-muted)] font-normal">(used in API)</span></label>
+                    <input
+                      value={aliasName} onChange={(e) => setAliasName(e.target.value)}
+                      required placeholder="billing" className="input"
+                    />
+                    <p className="text-xs text-[var(--text-muted)] mt-1">Lowercase slug, e.g. <code>support</code></p>
+                  </div>
+                  <div>
+                    <label className="input-label">From email</label>
+                    <input
+                      type="email" value={aliasEmail} onChange={(e) => setAliasEmail(e.target.value)}
+                      required placeholder="billing@yourapp.com" className="input"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="input-label">From name <span className="text-[var(--text-muted)] font-normal">(optional)</span></label>
+                    <input
+                      value={aliasFromName} onChange={(e) => setAliasFromName(e.target.value)}
+                      placeholder="Billing Team" className="input"
+                    />
+                  </div>
+                </div>
+                <button type="submit" disabled={aliasAdding} className="btn-primary disabled:opacity-50">
+                  {aliasAdding ? 'Adding…' : 'Add alias'}
+                </button>
+              </form>
             </div>
           )}
 

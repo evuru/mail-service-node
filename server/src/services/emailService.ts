@@ -75,17 +75,43 @@ export interface SendEmailOptions {
   data: Record<string, unknown>;
   app: IEmailApp;
   version?: number;
-  from_email?: string;  // per-send alias override; falls back to app.smtp_from_email → smtp_user
-  from_name?: string;   // per-send display name override; falls back to template.sender_name → app.smtp_from_name
+  alias?: string;       // named alias slug; must be verified — overrides from_email/from_name
+  from_email?: string;  // per-send email override (used when alias is absent)
+  from_name?: string;   // per-send display name override
 }
 
 export interface SendRawEmailOptions {
   subject: string;
   html: string;
   recipient: string;
+  alias?: string;
   from_name?: string;
-  from_email?: string;  // per-send alias override
+  from_email?: string;
   app: IEmailApp;
+}
+
+/** Resolve alias → { fromAddress, fromName, aliasName } or throw if unverified/missing. */
+function resolveAlias(
+  app: IEmailApp,
+  alias: string | undefined,
+  fallbackEmail: string | undefined,
+  fallbackName: string | undefined,
+): { fromAddress: string; fromName: string; aliasName: string | null } {
+  if (alias) {
+    const found = app.aliases.find((a) => a.name === alias.toLowerCase());
+    if (!found) throw new Error(`Alias "${alias}" does not exist on this app`);
+    if (!found.verified) throw new Error(`Alias "${alias}" has not been verified yet`);
+    return {
+      fromAddress: found.from_email,
+      fromName: found.from_name || app.smtp_from_name || app.app_name || 'Mail Service',
+      aliasName: found.name,
+    };
+  }
+  return {
+    fromAddress: fallbackEmail || app.smtp_from_email || app.smtp_user,
+    fromName: fallbackName || app.smtp_from_name || app.app_name || 'Mail Service',
+    aliasName: null,
+  };
 }
 
 export interface SendResult {
@@ -120,7 +146,7 @@ async function resolveTemplateContent(
 // ─── sendEmail ────────────────────────────────────────────────────────────────
 
 export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> => {
-  const { template_slug, recipient, data, app, version, from_email, from_name: fromNameOverride } = options;
+  const { template_slug, recipient, data, app, version, alias, from_email, from_name: fromNameOverride } = options;
 
   // Check if recipient has unsubscribed from this app
   const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
@@ -149,8 +175,10 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
   const plainText = htmlToPlainText(renderedBody);
   const renderedSubject = Handlebars.compile(resolvedSubject)(mergedData);
 
-  const fromName = fromNameOverride || template.sender_name || app.smtp_from_name || app.app_name || 'Mail Service';
-  const fromAddress = from_email || app.smtp_from_email || app.smtp_user;
+  const { fromAddress, fromName: resolvedFromName, aliasName } = resolveAlias(
+    app, alias, from_email, fromNameOverride || template.sender_name || undefined,
+  );
+  const fromName = resolvedFromName;
   const from = `"${fromName}" <${fromAddress}>`;
 
   const extraHeaders: Record<string, string> = {
@@ -176,7 +204,7 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
       });
       await EmailLog.create({
         app_id: app._id, template_id: template._id, template_slug,
-        template_version: resolvedVersion,
+        template_version: resolvedVersion, alias_name: aliasName,
         recipient, status: 'success',
       });
       return { success: true, messageId: info.messageId };
@@ -189,7 +217,7 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
 
   await EmailLog.create({
     app_id: app._id, template_id: template._id, template_slug,
-    template_version: resolvedVersion,
+    template_version: resolvedVersion, alias_name: aliasName,
     recipient, status: 'failed', error_message: lastError?.message,
   });
   return { success: false, error: lastError?.message };
@@ -198,7 +226,7 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
 // ─── sendRawEmail ─────────────────────────────────────────────────────────────
 
 export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendResult> => {
-  const { subject, html, recipient, from_name, from_email, app } = options;
+  const { subject, html, recipient, alias, from_name, from_email, app } = options;
 
   // Check unsubscribe list
   const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
@@ -210,10 +238,9 @@ export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendRe
     return { success: false, error: 'Recipient has unsubscribed' };
   }
 
+  const { fromAddress, fromName, aliasName } = resolveAlias(app, alias, from_email, from_name);
   const inlinedHtml = juice(html);
   const plainText = htmlToPlainText(html);
-  const fromName = from_name || app.smtp_from_name || app.app_name || 'Mail Service';
-  const fromAddress = from_email || app.smtp_from_email || app.smtp_user;
   const from = `"${fromName}" <${fromAddress}>`;
 
   const unsubscribeUrl = buildUnsubscribeUrl(app, recipient);
@@ -231,7 +258,8 @@ export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendRe
         from, to: recipient, subject, html: inlinedHtml, text: plainText, headers: extraHeaders,
       });
       await EmailLog.create({
-        app_id: app._id, template_id: null, template_slug: '_raw', recipient, status: 'success',
+        app_id: app._id, template_id: null, template_slug: '_raw',
+        alias_name: aliasName, recipient, status: 'success',
       });
       return { success: true, messageId: info.messageId };
     } catch (err) {
@@ -241,8 +269,8 @@ export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendRe
   }
 
   await EmailLog.create({
-    app_id: app._id, template_id: null, template_slug: '_raw', recipient,
-    status: 'failed', error_message: lastError?.message,
+    app_id: app._id, template_id: null, template_slug: '_raw',
+    alias_name: aliasName, recipient, status: 'failed', error_message: lastError?.message,
   });
   return { success: false, error: lastError?.message };
 };

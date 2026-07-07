@@ -1,6 +1,15 @@
 import { Schema, model, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
+export interface IAppAlias {
+  name: string;             // API slug used in sends (e.g. "billing")
+  from_email: string;
+  from_name: string;
+  verified: boolean;
+  token?: string;           // hex token stored while awaiting verification
+  token_expires_at?: Date;
+}
+
 export interface IEmailApp extends Document<string> {
   _id: string;
   app_name: string;          // used as {{appName}} in templates
@@ -12,13 +21,26 @@ export interface IEmailApp extends Document<string> {
   smtp_user: string;
   smtp_pass: string;
   smtp_from_name: string;
-  smtp_from_email: string;   // alias address for the From: header; falls back to smtp_user when empty
+  smtp_from_email: string;   // default alias for From: header; falls back to smtp_user when empty
+  aliases: IAppAlias[];      // named sender aliases (each must be verified before use)
   api_key: string;           // generated UUID — used for X-API-KEY auth
   llm_enabled: boolean;      // whether AI features are enabled for this app
   llm_min_role: 'owner' | 'editor' | 'viewer';  // minimum member role to use AI
   created_at: Date;
   updated_at: Date;
 }
+
+const AppAliasSchema = new Schema<IAppAlias>(
+  {
+    name:             { type: String, required: true, trim: true, lowercase: true },
+    from_email:       { type: String, required: true, trim: true, lowercase: true },
+    from_name:        { type: String, default: '' },
+    verified:         { type: Boolean, default: false },
+    token:            { type: String, default: null },
+    token_expires_at: { type: Date,   default: null },
+  },
+  { _id: false }
+);
 
 const EmailAppSchema = new Schema<IEmailApp>(
   {
@@ -33,6 +55,7 @@ const EmailAppSchema = new Schema<IEmailApp>(
     smtp_pass:       { type: String, default: '' },
     smtp_from_name:  { type: String, default: '' },
     smtp_from_email: { type: String, default: '' },
+    aliases:      { type: [AppAliasSchema], default: [] },
     api_key:      { type: String, required: true, unique: true, default: uuidv4 },
     llm_enabled:  { type: Boolean, default: false },
     llm_min_role: { type: String, enum: ['owner', 'editor', 'viewer'], default: 'editor' },

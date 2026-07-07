@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { requireAuth } from '../middleware/auth';
 import { EmailApp } from '../models/EmailApp';
 import { AppMember, canRead, canWrite, canDelete, canManage, permissionsFromRole } from '../models/AppMember';
@@ -79,10 +80,10 @@ appsRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Write permission required' });
       return;
     }
-    const { app_name, app_url, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, llm_enabled, llm_min_role } = req.body;
+    const { app_name, app_url, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, llm_enabled, llm_min_role } = req.body;
 
     // SMTP changes require manage permission
-    const smtpFields = { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name };
+    const smtpFields = { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from_name, smtp_from_email };
     const hasSmtpChange = Object.values(smtpFields).some((v) => v !== undefined);
     if (hasSmtpChange && !canManage(membership)) {
       res.status(403).json({ error: 'Manage permission required to update SMTP settings' });
@@ -102,7 +103,8 @@ appsRouter.put('/:id', async (req: Request, res: Response): Promise<void> => {
       if (smtp_secure !== undefined) update.smtp_secure = smtp_secure;
       if (smtp_user !== undefined) update.smtp_user = smtp_user;
       if (smtp_pass !== undefined) update.smtp_pass = smtp_pass;
-      if (smtp_from_name !== undefined) update.smtp_from_name = smtp_from_name;
+      if (smtp_from_name  !== undefined) update.smtp_from_name  = smtp_from_name;
+      if (smtp_from_email !== undefined) update.smtp_from_email = smtp_from_email;
       clearAppTransporter(req.params.id);
     }
 
@@ -246,5 +248,154 @@ appsRouter.delete('/:id/members/:userId', async (req: Request, res: Response): P
     res.json({ message: 'Member removed' });
   } catch {
     res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
+// ─── Aliases ──────────────────────────────────────────────────────────────────
+
+const ALIAS_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function sanitizeName(raw: string): string {
+  return raw.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '-');
+}
+
+function buildVerifyUrl(req: Request, token: string): string {
+  const base = (process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  return `${base}/v1/verify-alias?token=${token}`;
+}
+
+// GET /apps/:id/aliases
+appsRouter.get('/:id/aliases', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const membership = await AppMember.findOne({ app_id: req.params.id, user_id: req.user!._id });
+    if (!membership) { res.status(404).json({ error: 'App not found' }); return; }
+    const app = await EmailApp.findById(req.params.id).select('aliases');
+    if (!app) { res.status(404).json({ error: 'App not found' }); return; }
+    // Never expose the raw token
+    res.json(app.aliases.map(({ name, from_email, from_name, verified, token_expires_at }) => ({
+      name, from_email, from_name, verified,
+      token_expires_at: token_expires_at ?? null,
+    })));
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch aliases' });
+  }
+});
+
+// POST /apps/:id/aliases — create + send verification email
+appsRouter.post('/:id/aliases', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const membership = await AppMember.findOne({ app_id: req.params.id, user_id: req.user!._id });
+    if (!membership || !canManage(membership)) {
+      res.status(403).json({ error: 'Manage permission required to add aliases' }); return;
+    }
+    const { name, from_email, from_name } = req.body;
+    if (!name || !from_email) {
+      res.status(400).json({ error: 'name and from_email are required' }); return;
+    }
+
+    const slug = sanitizeName(name);
+    const app = await EmailApp.findById(req.params.id);
+    if (!app) { res.status(404).json({ error: 'App not found' }); return; }
+
+    if (app.aliases.some((a) => a.name === slug)) {
+      res.status(409).json({ error: `Alias "${slug}" already exists` }); return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const token_expires_at = new Date(Date.now() + ALIAS_TOKEN_TTL_MS);
+
+    app.aliases.push({ name: slug, from_email: from_email.toLowerCase().trim(), from_name: from_name || '', verified: false, token, token_expires_at });
+    await app.save();
+
+    // Send verification email to the alias address
+    try {
+      const { sendSystemEmail } = await import('../services/platformMailerService');
+      const verifyUrl = buildVerifyUrl(req, token);
+      const appName = process.env.APP_NAME || 'Mail Service';
+      await sendSystemEmail({
+        to: from_email,
+        subject: `Verify your sender alias — ${slug}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+            <h2 style="margin:0 0 8px;font-size:20px">Verify your sender alias</h2>
+            <p style="color:#555;margin:0 0 8px">You added <strong>${slug}</strong> (<em>${from_email}</em>) as a sender alias on <strong>${appName}</strong>.</p>
+            <p style="color:#555;margin:0 0 24px">Click the button below to confirm you control this address. The link expires in 24 hours.</p>
+            <a href="${verifyUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+              Verify alias
+            </a>
+            <p style="color:#999;font-size:12px;margin:24px 0 0">If you didn't request this, ignore this email.</p>
+          </div>`,
+        text: `Verify your sender alias "${slug}" (${from_email}) by visiting: ${verifyUrl}`,
+      });
+    } catch (mailErr) {
+      console.warn('[Aliases] Verification email failed to send:', (mailErr as Error).message);
+      // Don't block the response — alias is created, user can resend from the UI
+    }
+
+    const alias = app.aliases.find((a) => a.name === slug)!;
+    res.status(201).json({ name: alias.name, from_email: alias.from_email, from_name: alias.from_name, verified: false, token_expires_at });
+  } catch {
+    res.status(500).json({ error: 'Failed to create alias' });
+  }
+});
+
+// DELETE /apps/:id/aliases/:name
+appsRouter.delete('/:id/aliases/:name', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const membership = await AppMember.findOne({ app_id: req.params.id, user_id: req.user!._id });
+    if (!membership || !canManage(membership)) {
+      res.status(403).json({ error: 'Manage permission required' }); return;
+    }
+    const app = await EmailApp.findById(req.params.id);
+    if (!app) { res.status(404).json({ error: 'App not found' }); return; }
+
+    const before = app.aliases.length;
+    app.aliases = app.aliases.filter((a) => a.name !== req.params.name);
+    if (app.aliases.length === before) { res.status(404).json({ error: 'Alias not found' }); return; }
+    await app.save();
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to delete alias' });
+  }
+});
+
+// POST /apps/:id/aliases/:name/resend — resend verification email
+appsRouter.post('/:id/aliases/:name/resend', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const membership = await AppMember.findOne({ app_id: req.params.id, user_id: req.user!._id });
+    if (!membership || !canManage(membership)) {
+      res.status(403).json({ error: 'Manage permission required' }); return;
+    }
+    const app = await EmailApp.findById(req.params.id);
+    if (!app) { res.status(404).json({ error: 'App not found' }); return; }
+
+    const alias = app.aliases.find((a) => a.name === req.params.name);
+    if (!alias) { res.status(404).json({ error: 'Alias not found' }); return; }
+    if (alias.verified) { res.status(400).json({ error: 'Alias is already verified' }); return; }
+
+    alias.token = crypto.randomBytes(32).toString('hex');
+    alias.token_expires_at = new Date(Date.now() + ALIAS_TOKEN_TTL_MS);
+    await app.save();
+
+    const { sendSystemEmail } = await import('../services/platformMailerService');
+    const verifyUrl = buildVerifyUrl(req, alias.token);
+    const appName = process.env.APP_NAME || 'Mail Service';
+    await sendSystemEmail({
+      to: alias.from_email,
+      subject: `Verify your sender alias — ${alias.name}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+          <h2 style="margin:0 0 8px;font-size:20px">Verify your sender alias</h2>
+          <p style="color:#555;margin:0 0 24px">Click the button below to verify <strong>${alias.name}</strong> (<em>${alias.from_email}</em>) on <strong>${appName}</strong>. The link expires in 24 hours.</p>
+          <a href="${verifyUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+            Verify alias
+          </a>
+        </div>`,
+      text: `Verify alias "${alias.name}" (${alias.from_email}): ${verifyUrl}`,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message || 'Failed to resend verification' });
   }
 });

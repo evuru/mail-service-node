@@ -9,6 +9,7 @@ export interface IEmailLog extends Document<string> {
   template_id: string | null;
   template_slug: string;
   template_version: number | null;
+  alias_name?: string | null;   // which named alias was used, if any
   recipient: string;
   status: EmailStatus;
   error_message?: string;
@@ -22,6 +23,7 @@ const EmailLogSchema = new Schema<IEmailLog>(
     template_id: { type: String, default: null },
     template_slug: { type: String, required: true },
     template_version: { type: Number, default: null },
+    alias_name: { type: String, default: null },
     recipient: { type: String, required: true },
     status: { type: String, enum: ['success', 'failed', 'unsubscribed'], required: true },
     error_message: { type: String },
