@@ -27,15 +27,21 @@ export function RegisterPage() {
   const { setAuth }             = useAuthStore();
   const navigate = useNavigate();
 
+  const [needsVerification, setNeedsVerification] = useState(false);
+
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const res = await client.post<{ token: string; user: User }>(
+      const res = await client.post<{ token: string; user: User; needs_verification?: boolean }>(
         '/auth/register', { name, email, password, phone: phone.trim() || undefined }
       );
       setAuth(res.data.token, res.data.user);
+      if (res.data.needs_verification) {
+        setNeedsVerification(true);
+        return; // show the verification notice before proceeding
+      }
       if (res.data.user.org_id) navigate('/apps');
       else setStep('org');
     } catch (err) {
@@ -163,7 +169,38 @@ export function RegisterPage() {
           </div>
 
           <div className="card p-6 shadow-modal">
-            {!isOrg ? (
+            {needsVerification ? (
+              <div className="text-center space-y-4 py-2">
+                <div className="w-14 h-14 rounded-2xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center mx-auto">
+                  <Mail className="w-7 h-7 text-brand-600 dark:text-brand-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Check your inbox</h3>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
+                    We sent a verification link to <strong>{email}</strong>.<br />
+                    Click the link to verify your email, then continue.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/apps')}
+                  className="btn-primary w-full justify-center py-2.5"
+                >
+                  Continue to dashboard <ArrowRight className="w-4 h-4" />
+                </button>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Didn't receive it?{' '}
+                  <button
+                    onClick={async () => {
+                      try { await client.post('/auth/resend-verification'); }
+                      catch { /* ignore */ }
+                    }}
+                    className="text-brand-600 dark:text-brand-400 hover:underline"
+                  >
+                    Resend
+                  </button>
+                </p>
+              </div>
+            ) : !isOrg ? (
               <form onSubmit={handleAccountSubmit} className="space-y-4">
                 {error && <ErrorAlert>{error}</ErrorAlert>}
                 <div>
@@ -214,7 +251,7 @@ export function RegisterPage() {
               </form>
             )}
 
-            {!isOrg && (
+            {!isOrg && !needsVerification && (
               <p className="text-center text-sm text-[var(--text-muted)] mt-5">
                 Already have an account?{' '}
                 <Link to="/login" className="text-brand-600 dark:text-brand-400 hover:underline font-medium">

@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { connectDB } from './config/db';
 import { apiRoutes } from './routes';
 import { requestLogger } from './middleware/requestLogger';
+import { buildOpenApiSpec } from './openapi';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4001;
@@ -33,6 +34,31 @@ if (IS_PROD) {
 }
 
 app.use('/v1', apiRoutes);
+
+// OpenAPI spec — served at /v1/openapi.json so it sits under the API prefix
+app.get('/v1/openapi.json', (req, res) => {
+  const serverUrl = `${req.protocol}://${req.get('host')}`;
+  res.json(buildOpenApiSpec(serverUrl));
+});
+
+// Redoc docs UI — served at /api-docs
+app.get('/api-docs', (_req, res) => {
+  const appName = process.env.APP_NAME || 'Mail Service';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${appName} API Docs</title>
+  <style>body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <redoc spec-url="/v1/openapi.json" expand-responses="200,201"></redoc>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js"></script>
+</body>
+</html>`);
+});
 
 app.get('/health', (_req, res) => {
   res.json({

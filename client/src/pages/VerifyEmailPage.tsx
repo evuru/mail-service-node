@@ -64,7 +64,7 @@ export function VerifyEmailPage() {
         </div>
 
         {status === 'success' && (
-          <Link to="/templates" className="btn-primary w-full justify-center">
+          <Link to="/apps" className="btn-primary w-full justify-center">
             Continue to dashboard
           </Link>
         )}

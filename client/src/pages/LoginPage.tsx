@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, ArrowRight, CheckCircle2, ArrowLeft, Zap, Shield, BarChart2 } from 'lucide-react';
 import { PasswordInput } from '../components/PasswordInput';
+
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import client from '../api/client';
@@ -133,14 +135,14 @@ export function LoginPage() {
                 <label className="input-label">Email address</label>
                 <input
                   type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  required autoFocus placeholder={import.meta.env.DEV ? 'you@example.com' : undefined} className="input"
+                  required autoFocus placeholder={isLocalhost ? 'you@example.com' : undefined} className="input"
                 />
               </div>
 
               <div>
                 <label className="input-label">Password</label>
                 <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)}
-                  required placeholder={import.meta.env.DEV ? '••••••••' : undefined} />
+                  required placeholder={isLocalhost ? '••••••••' : undefined} />
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
