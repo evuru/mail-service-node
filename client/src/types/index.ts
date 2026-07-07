@@ -184,6 +184,7 @@ export interface EmailApp {
   smtp_user: string;
   smtp_pass: string;
   smtp_from_name: string;
+  smtp_from_email: string;
   llm_enabled: boolean;
   llm_min_role: MemberRole;
   my_role?: MemberRole;

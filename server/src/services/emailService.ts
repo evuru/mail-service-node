@@ -75,6 +75,8 @@ export interface SendEmailOptions {
   data: Record<string, unknown>;
   app: IEmailApp;
   version?: number;
+  from_email?: string;  // per-send alias override; falls back to app.smtp_from_email → smtp_user
+  from_name?: string;   // per-send display name override; falls back to template.sender_name → app.smtp_from_name
 }
 
 export interface SendRawEmailOptions {
@@ -82,6 +84,7 @@ export interface SendRawEmailOptions {
   html: string;
   recipient: string;
   from_name?: string;
+  from_email?: string;  // per-send alias override
   app: IEmailApp;
 }
 
@@ -117,7 +120,7 @@ async function resolveTemplateContent(
 // ─── sendEmail ────────────────────────────────────────────────────────────────
 
 export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> => {
-  const { template_slug, recipient, data, app, version } = options;
+  const { template_slug, recipient, data, app, version, from_email, from_name: fromNameOverride } = options;
 
   // Check if recipient has unsubscribed from this app
   const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
@@ -146,8 +149,9 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
   const plainText = htmlToPlainText(renderedBody);
   const renderedSubject = Handlebars.compile(resolvedSubject)(mergedData);
 
-  const fromName = template.sender_name || app.smtp_from_name || app.app_name || 'Mail Service';
-  const from = `"${fromName}" <${app.smtp_user}>`;
+  const fromName = fromNameOverride || template.sender_name || app.smtp_from_name || app.app_name || 'Mail Service';
+  const fromAddress = from_email || app.smtp_from_email || app.smtp_user;
+  const from = `"${fromName}" <${fromAddress}>`;
 
   const extraHeaders: Record<string, string> = {
     'Precedence': 'bulk',
@@ -194,7 +198,7 @@ export const sendEmail = async (options: SendEmailOptions): Promise<SendResult> 
 // ─── sendRawEmail ─────────────────────────────────────────────────────────────
 
 export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendResult> => {
-  const { subject, html, recipient, from_name, app } = options;
+  const { subject, html, recipient, from_name, from_email, app } = options;
 
   // Check unsubscribe list
   const unsubscribed = await Unsubscribe.findOne({ app_id: app._id, email: recipient.toLowerCase() });
@@ -209,7 +213,8 @@ export const sendRawEmail = async (options: SendRawEmailOptions): Promise<SendRe
   const inlinedHtml = juice(html);
   const plainText = htmlToPlainText(html);
   const fromName = from_name || app.smtp_from_name || app.app_name || 'Mail Service';
-  const from = `"${fromName}" <${app.smtp_user}>`;
+  const fromAddress = from_email || app.smtp_from_email || app.smtp_user;
+  const from = `"${fromName}" <${fromAddress}>`;
 
   const unsubscribeUrl = buildUnsubscribeUrl(app, recipient);
   const extraHeaders: Record<string, string> = { 'Precedence': 'bulk', 'X-Mailer': 'Mail Service' };

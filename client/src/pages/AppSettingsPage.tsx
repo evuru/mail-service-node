@@ -34,12 +34,13 @@ export function AppSettingsPage() {
   const [appName, setAppName] = useState('');
   const [appUrl, setAppUrl] = useState('');
 
-  const [smtpHost, setSmtpHost]         = useState('');
-  const [smtpPort, setSmtpPort]         = useState(587);
-  const [smtpSecure, setSmtpSecure]     = useState(false);
-  const [smtpUser, setSmtpUser]         = useState('');
-  const [smtpPass, setSmtpPass]         = useState('');
-  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpHost, setSmtpHost]               = useState('');
+  const [smtpPort, setSmtpPort]               = useState(587);
+  const [smtpSecure, setSmtpSecure]           = useState(false);
+  const [smtpUser, setSmtpUser]               = useState('');
+  const [smtpPass, setSmtpPass]               = useState('');
+  const [smtpFromName, setSmtpFromName]       = useState('');
+  const [smtpFromEmail, setSmtpFromEmail]     = useState('');
 
   const [members, setMembers]       = useState<MemberRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -68,6 +69,7 @@ export function AppSettingsPage() {
       setSmtpUser(a.smtp_user);
       setSmtpPass(a.smtp_pass);
       setSmtpFromName(a.smtp_from_name);
+      setSmtpFromEmail(a.smtp_from_email ?? '');
       setLlmEnabled(a.llm_enabled ?? false);
       setLlmMinRole(a.llm_min_role ?? 'editor');
       setMembers(membRes.data);
@@ -90,6 +92,7 @@ export function AppSettingsPage() {
       const res = await client.put<EmailApp>(`/apps/${id}`, {
         smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: smtpSecure,
         smtp_user: smtpUser, smtp_pass: smtpPass, smtp_from_name: smtpFromName,
+        smtp_from_email: smtpFromEmail,
       });
       setApp(res.data); updateApp(res.data); flash('SMTP settings saved!');
     } catch (err) { setError((err as Error).message); } finally { setSaving(false); }
@@ -240,9 +243,25 @@ export function AppSettingsPage() {
                   <label className="input-label">SMTP Password</label>
                   <PasswordInput value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" />
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="input-label">From Name</label>
                   <input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} className="input" placeholder="My Company" />
+                </div>
+                <div>
+                  <label className="input-label">
+                    From Email
+                    <span className="ml-1.5 text-[var(--text-muted)] font-normal">(alias)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={smtpFromEmail}
+                    onChange={(e) => setSmtpFromEmail(e.target.value)}
+                    className="input"
+                    placeholder={smtpUser || 'noreply@yourapp.com'}
+                  />
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    If your provider supports it, emails send from this address instead of the SMTP user. Leave blank to use the SMTP user.
+                  </p>
                 </div>
               </div>
 

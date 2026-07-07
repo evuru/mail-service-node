@@ -8,7 +8,7 @@ export const sendRouter = Router();
 // ─── POST /v1/send — template-based ──────────────────────────────────────────
 
 sendRouter.post('/', requireApiKey, sendLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { template_slug, recipient, data, version } = req.body;
+  const { template_slug, recipient, data, version, from_email, from_name } = req.body;
 
   if (!template_slug || typeof template_slug !== 'string') {
     res.status(400).json({ error: 'template_slug (string) is required' });
@@ -28,7 +28,7 @@ sendRouter.post('/', requireApiKey, sendLimiter, async (req: Request, res: Respo
   }
 
   try {
-    const result = await sendEmail({ template_slug, recipient, data: data ?? {}, app: req.emailApp!, version });
+    const result = await sendEmail({ template_slug, recipient, data: data ?? {}, app: req.emailApp!, version, from_email, from_name });
     if (result.success) {
       res.json({ success: true, messageId: result.messageId });
     } else {
@@ -43,8 +43,8 @@ sendRouter.post('/', requireApiKey, sendLimiter, async (req: Request, res: Respo
 // ─── POST /v1/send/raw — custom subject + HTML, no template ──────────────────
 
 sendRouter.post('/raw', requireApiKey, sendLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { subject, html, recipient, from_name } = req.body as {
-    subject?: string; html?: string; recipient?: string; from_name?: string;
+  const { subject, html, recipient, from_name, from_email } = req.body as {
+    subject?: string; html?: string; recipient?: string; from_name?: string; from_email?: string;
   };
 
   if (!subject || typeof subject !== 'string') {
@@ -61,7 +61,7 @@ sendRouter.post('/raw', requireApiKey, sendLimiter, async (req: Request, res: Re
   }
 
   try {
-    const result = await sendRawEmail({ subject, html, recipient, from_name, app: req.emailApp! });
+    const result = await sendRawEmail({ subject, html, recipient, from_name, from_email, app: req.emailApp! });
     if (result.success) {
       res.json({ success: true, messageId: result.messageId });
     } else {
