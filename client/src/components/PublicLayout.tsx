@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { Mail, ArrowRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Mail, ArrowRight, ChevronDown, BookOpen, Code2, ExternalLink } from 'lucide-react';
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
 export function PublicNavbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const docsRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -14,12 +16,23 @@ export function PublicNavbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (docsRef.current && !docsRef.current.contains(e.target as Node)) {
+        setDocsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
   const navLinks = [
     { label: 'Features', to: '/features' },
     { label: 'How it works', to: '/how-it-works' },
     { label: 'Pricing', to: '/pricing' },
-    { label: 'Docs', to: '/docs' },
   ];
+
+  const docsActive = location.pathname.startsWith('/docs');
 
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
@@ -47,6 +60,51 @@ export function PublicNavbar() {
               </Link>
             );
           })}
+
+          {/* Docs dropdown */}
+          <div ref={docsRef} className="relative">
+            <button
+              onClick={() => setDocsOpen((v) => !v)}
+              className={`flex items-center gap-1 text-sm font-medium transition-colors ${
+                docsActive ? 'text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Docs
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${docsOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {docsOpen && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-56 bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl shadow-black/40 overflow-hidden animate-fade-in">
+                <Link
+                  to="/docs"
+                  onClick={() => setDocsOpen(false)}
+                  className="flex items-start gap-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors group"
+                >
+                  <BookOpen className="w-4 h-4 mt-0.5 text-indigo-400 shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium leading-none mb-1">Documentation</div>
+                    <div className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">Guides & SDK examples</div>
+                  </div>
+                </Link>
+                <a
+                  href="/api-docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setDocsOpen(false)}
+                  className="flex items-start gap-3 px-4 py-3.5 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border-t border-slate-800 group"
+                >
+                  <Code2 className="w-4 h-4 mt-0.5 text-indigo-400 shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 text-sm font-medium leading-none mb-1">
+                      API Reference
+                      <ExternalLink className="w-3 h-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                    </div>
+                    <div className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">Interactive OpenAPI spec</div>
+                  </div>
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* CTAs */}
@@ -70,15 +128,19 @@ export function PublicNavbar() {
 export function PublicFooter() {
   const year = new Date().getFullYear();
 
-  const links: Record<string, { label: string; to: string }[]> = {
+  const links: Record<string, { label: string; to?: string; href?: string; external?: boolean }[]> = {
     Product: [
-      { label: 'Features', to: '/features' },
+      { label: 'Features',     to: '/features' },
       { label: 'How it works', to: '/how-it-works' },
-      { label: 'Pricing', to: '/pricing' },
-      { label: 'Docs', to: '/docs' },
+      { label: 'Pricing',      to: '/pricing' },
+    ],
+    Developers: [
+      { label: 'Documentation', to: '/docs' },
+      { label: 'API Reference', href: '/api-docs', external: true },
+      { label: 'OpenAPI spec',  href: '/v1/openapi.json', external: true },
     ],
     Account: [
-      { label: 'Sign in', to: '/login' },
+      { label: 'Sign in',  to: '/login' },
       { label: 'Register', to: '/register' },
     ],
   };
@@ -86,7 +148,7 @@ export function PublicFooter() {
   return (
     <footer className="bg-slate-950 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-6 pt-16 pb-10">
-        <div className="grid md:grid-cols-3 gap-12 mb-16">
+        <div className="grid md:grid-cols-4 gap-10 mb-16">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5 mb-4">
@@ -110,11 +172,19 @@ export function PublicFooter() {
             <div key={section}>
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">{section}</div>
               <ul className="space-y-3">
-                {items.map(({ label, to }) => (
-                  <li key={to}>
-                    <Link to={to} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
-                      {label}
-                    </Link>
+                {items.map(({ label, to, href, external }) => (
+                  <li key={label}>
+                    {href ? (
+                      <a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}
+                        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                        {label}
+                        {external && <ExternalLink className="w-3 h-3 opacity-60" />}
+                      </a>
+                    ) : (
+                      <Link to={to!} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                        {label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
