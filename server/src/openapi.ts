@@ -85,16 +85,32 @@ Most production integrations use the **API Key** routes only. Obtain your key fr
             template_slug: { type: 'string', example: 'welcome-email' },
             recipient:     { type: 'string', format: 'email', example: 'user@example.com' },
             data:          { type: 'object', additionalProperties: true, example: { user_name: 'Jane' } },
+            version:       { type: 'integer', minimum: 1, description: 'Pin a specific template version. Omit to use the active version.' },
+            alias:         { type: 'string', example: 'billing', description: 'Named sender alias to use as the From: address. Must be verified. Takes priority over from_email.' },
+            from_email:    { type: 'string', format: 'email', description: 'One-off From: address override. Used when no alias is specified.' },
+            from_name:     { type: 'string', description: 'Display name override. Falls back to template sender_name → app smtp_from_name.' },
           },
         },
         SendRawPayload: {
           type: 'object',
-          required: ['to', 'subject', 'html'],
+          required: ['recipient', 'subject', 'html'],
           properties: {
-            to:      { type: 'string', format: 'email' },
-            subject: { type: 'string' },
-            html:    { type: 'string' },
-            text:    { type: 'string' },
+            recipient:  { type: 'string', format: 'email' },
+            subject:    { type: 'string' },
+            html:       { type: 'string' },
+            alias:      { type: 'string', example: 'support', description: 'Named sender alias. Must be verified.' },
+            from_email: { type: 'string', format: 'email', description: 'One-off From: address override.' },
+            from_name:  { type: 'string', description: 'Sender display name.' },
+          },
+        },
+        AppAlias: {
+          type: 'object',
+          properties: {
+            name:             { type: 'string', example: 'billing', description: 'Lowercase slug used in send calls.' },
+            from_email:       { type: 'string', format: 'email', example: 'billing@acme.com' },
+            from_name:        { type: 'string', example: 'Billing Team' },
+            verified:         { type: 'boolean', description: 'True once the owner clicks the verification link.' },
+            token_expires_at: { type: 'string', format: 'date-time', nullable: true, description: 'When the pending verification token expires (24 h from last send).' },
           },
         },
         SendResult: {
@@ -182,6 +198,7 @@ Most production integrations use the **API Key** routes only. Obtain your key fr
             _id:           { type: 'string' },
             app_id:        { type: 'string', nullable: true },
             template_slug: { type: 'string' },
+            alias_name:    { type: 'string', nullable: true, description: 'Which named alias was used. null = default sender.' },
             recipient:     { type: 'string', format: 'email' },
             status:        { type: 'string', enum: ['success', 'failed', 'unsubscribed'] },
             error_message: { type: 'string' },
@@ -231,21 +248,23 @@ Most production integrations use the **API Key** routes only. Obtain your key fr
         EmailApp: {
           type: 'object',
           properties: {
-            _id:            { type: 'string' },
-            app_name:       { type: 'string' },
-            app_url:        { type: 'string' },
-            api_key:        { type: 'string' },
-            owner_id:       { type: 'string' },
-            smtp_host:      { type: 'string' },
-            smtp_port:      { type: 'integer' },
-            smtp_secure:    { type: 'boolean' },
-            smtp_user:      { type: 'string' },
-            smtp_from_name: { type: 'string' },
-            llm_enabled:    { type: 'boolean' },
-            llm_min_role:   { type: 'string', enum: ['owner', 'editor', 'viewer'] },
-            my_role:        { type: 'string', enum: ['owner', 'editor', 'viewer'] },
-            created_at:     { type: 'string', format: 'date-time' },
-            updated_at:     { type: 'string', format: 'date-time' },
+            _id:             { type: 'string' },
+            app_name:        { type: 'string' },
+            app_url:         { type: 'string' },
+            api_key:         { type: 'string' },
+            owner_id:        { type: 'string' },
+            smtp_host:       { type: 'string' },
+            smtp_port:       { type: 'integer' },
+            smtp_secure:     { type: 'boolean' },
+            smtp_user:       { type: 'string', description: 'SMTP authentication credential. Never used as the From: address directly when smtp_from_email is set.' },
+            smtp_from_name:  { type: 'string', description: 'Default sender display name.' },
+            smtp_from_email: { type: 'string', format: 'email', description: 'Default From: address alias. Falls back to smtp_user when blank.' },
+            aliases:         { type: 'array', items: { '$ref': '#/components/schemas/AppAlias' }, description: 'Named sender aliases. Each must be verified before use.' },
+            llm_enabled:     { type: 'boolean' },
+            llm_min_role:    { type: 'string', enum: ['owner', 'editor', 'viewer'] },
+            my_role:         { type: 'string', enum: ['owner', 'editor', 'viewer'] },
+            created_at:      { type: 'string', format: 'date-time' },
+            updated_at:      { type: 'string', format: 'date-time' },
           },
         },
         AppMember: {
@@ -701,6 +720,79 @@ Most production integrations use the **API Key** routes only. Obtain your key fr
             }}},
           },
           responses: { 201: { description: 'Added' } },
+        },
+      },
+
+      // ── Aliases ──────────────────────────────────────────────────────────────
+      '/apps/{id}/aliases': {
+        get: {
+          tags: ['Apps'], summary: 'List sender aliases for an app',
+          description: 'Returns all aliases. `token` is never returned — only `verified` status and expiry.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK', content: { 'application/json': { schema: { type: 'array', items: { '$ref': '#/components/schemas/AppAlias' } } } } } },
+        },
+        post: {
+          tags: ['Apps'], summary: 'Create a sender alias and send a verification email',
+          description: 'A verification email is sent to `from_email`. The alias cannot be used in sends until verified. Requires Manage permission.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object', required: ['name', 'from_email'],
+              properties: {
+                name:       { type: 'string', example: 'billing', description: 'Lowercase slug (a–z, 0–9, hyphens, underscores). Used as the alias identifier in send calls.' },
+                from_email: { type: 'string', format: 'email', example: 'billing@acme.com' },
+                from_name:  { type: 'string', example: 'Billing Team' },
+              },
+            }}},
+          },
+          responses: {
+            201: { description: 'Created — verification email sent', content: { 'application/json': { schema: { '$ref': '#/components/schemas/AppAlias' } } } },
+            409: { description: 'Alias name already exists on this app' },
+          },
+        },
+      },
+
+      '/apps/{id}/aliases/{name}': {
+        delete: {
+          tags: ['Apps'], summary: 'Delete a sender alias',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id',   in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'name', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'Deleted' }, 404: { description: 'Alias not found' } },
+        },
+      },
+
+      '/apps/{id}/aliases/{name}/resend': {
+        post: {
+          tags: ['Apps'], summary: 'Resend the verification email for a pending alias',
+          description: 'Generates a fresh 24 h token and resends the verification email to `from_email`.',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id',   in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'name', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Sent' },
+            400: { description: 'Alias is already verified' },
+          },
+        },
+      },
+
+      '/verify-alias': {
+        get: {
+          tags: ['Apps'],
+          summary: 'Verify a sender alias (public — linked from verification email)',
+          description: 'No authentication required. Sets `verified: true` on the alias and redirects to App Settings when `CLIENT_URL` is configured.',
+          parameters: [{ name: 'token', in: 'query', required: true, schema: { type: 'string' }, description: '32-byte hex token from the verification email.' }],
+          responses: {
+            302: { description: 'Verified — redirects to /apps/:id/settings?tab=aliases' },
+            400: { description: 'Token missing, not found, or expired' },
+          },
         },
       },
 

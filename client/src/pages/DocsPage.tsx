@@ -30,6 +30,7 @@ function DocsBody() {
           <PermissionsSection />
           <SendSection />
           <SendRawSection />
+          <SenderAliasesSection />
           <TemplateVarsSection />
           <TemplatesApiSection />
           <VersioningSection />
@@ -51,6 +52,7 @@ function Sidebar() {
     { id: 'permissions',       label: 'App Permissions' },
     { id: 'send',              label: 'Send via Template' },
     { id: 'send-raw',          label: 'Send Raw (Custom)' },
+    { id: 'sender-aliases',    label: 'Sender Aliases' },
     { id: 'template-variables',label: 'Template Variables' },
     { id: 'templates-api',     label: 'Templates API' },
     { id: 'versioning',        label: 'Versioning' },
@@ -533,6 +535,141 @@ function SendRawSection() {
       <InfoBox>
         Raw sends are logged with <InlineCode>template_slug: "_raw"</InlineCode> so they appear in your Send Logs
         dashboard. Use templates where possible — they give you live preview, AI assistance, and consistent branding.
+      </InfoBox>
+    </DocSection>
+  );
+}
+
+function SenderAliasesSection() {
+  return (
+    <DocSection id="sender-aliases" title="Sender Aliases">
+      <Para>
+        Sender aliases let a single Email App send from multiple <InlineCode>From:</InlineCode> addresses —
+        without creating separate apps. Every alias must be verified before it can be used, which confirms you
+        control that address.
+      </Para>
+
+      <H3>Two levels of sender identity</H3>
+      <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
+        <div className="grid grid-cols-[160px_1fr_1fr] bg-slate-50 border-b border-slate-200 px-4 py-2">
+          {['Level', 'Where set', 'Used when'].map((h) => (
+            <span key={h} className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</span>
+          ))}
+        </div>
+        {[
+          {
+            level: 'Default sender',
+            where: 'App Settings → SMTP → "From Email (alias)". Falls back to SMTP user if blank.',
+            when:  'No alias specified in the send call. This is your app\'s baseline From: address.',
+          },
+          {
+            level: 'Named alias',
+            where: 'App Settings → Aliases tab. Add a name, email, and display name; verify ownership.',
+            when:  'You pass "alias": "<name>" in a send call.',
+          },
+        ].map((r) => (
+          <div key={r.level} className="grid grid-cols-[160px_1fr_1fr] px-4 py-3 border-b border-slate-100 last:border-0 items-start gap-2">
+            <code className="text-[12px] font-mono text-indigo-700 font-semibold">{r.level}</code>
+            <span className="text-[12px] text-slate-600 leading-relaxed">{r.where}</span>
+            <span className="text-[12px] text-slate-600 leading-relaxed">{r.when}</span>
+          </div>
+        ))}
+      </div>
+
+      <H3>Priority chain</H3>
+      <Para>When resolving the From: address for a send, the system checks in this order:</Para>
+      <CodeBlock code={`1. Inline override  — "from_email" in the request body
+2. Named alias      — "alias": "billing" in the request body (must be verified)
+3. App default      — smtp_from_email set in App Settings → SMTP
+4. SMTP user        — the SMTP authentication username (always present)`} />
+
+      <H3>Setting the default sender (during app setup)</H3>
+      <Para>
+        In <strong>App Settings → SMTP</strong>, fill in <strong>From Email (alias)</strong> alongside the SMTP
+        credentials. This becomes the <InlineCode>From:</InlineCode> address for every send from this app that
+        doesn't specify an alias. Your SMTP provider must have this address verified or authorised.
+      </Para>
+      <CodeBlock label="App SMTP config" code={`smtp_host:       smtp.sendgrid.net
+smtp_user:       apikey               // the SMTP auth credential (never exposed in From:)
+smtp_from_name:  Acme
+smtp_from_email: noreply@acme.com     // all sends use this as From: by default`} />
+
+      <H3>Adding named aliases</H3>
+      <Para>
+        Go to <strong>App Settings → Aliases</strong>. Each alias has three fields:
+      </Para>
+      <PropTable rows={[
+        { name: 'name',       type: 'string', required: true,  desc: 'A lowercase slug used in send calls (e.g. "billing", "support"). Only a–z, 0–9, hyphens, underscores.' },
+        { name: 'from_email', type: 'string', required: true,  desc: 'The email address that will appear in the From: header. Must be verified.' },
+        { name: 'from_name',  type: 'string', required: false, desc: 'Display name shown in email clients (e.g. "Billing Team"). Falls back to app smtp_from_name.' },
+      ]} />
+
+      <H3>Verification flow</H3>
+      <Para>
+        When you add an alias, a verification email is sent <strong>to the alias address itself</strong>.
+        Whoever controls that inbox clicks the link to confirm ownership. Until verified, the alias
+        cannot be used — sends that reference an unverified alias return <InlineCode>HTTP 400</InlineCode>.
+      </Para>
+      <div className="flex flex-col gap-2">
+        {[
+          { step: '1', text: 'Add alias in App Settings → Aliases tab.' },
+          { step: '2', text: 'Verification email arrives at the alias address.' },
+          { step: '3', text: 'Click "Verify alias" — status flips to Verified.' },
+          { step: '4', text: 'Pass "alias": "<name>" in any send call.' },
+        ].map(({ step, text }) => (
+          <div key={step} className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{step}</div>
+            <span className="text-sm text-slate-600 pt-0.5">{text}</span>
+          </div>
+        ))}
+      </div>
+
+      <H3>Using an alias in a send call</H3>
+      <Para>
+        Pass the alias <InlineCode>name</InlineCode> as the <InlineCode>alias</InlineCode> field in either
+        the template send or raw send endpoint. Both support it.
+      </Para>
+      <CodeBlock label="POST /v1/send  — template send with alias" code={`{
+  "template_slug": "invoice-ready",
+  "recipient":     "customer@example.com",
+  "alias":         "billing",           // sends from billing@acme.com
+  "data": { "amount": "$49.00", "invoiceId": "1042" }
+}`} />
+      <CodeBlock label="POST /v1/send/raw  — raw send with alias" code={`{
+  "subject":   "Your support ticket #884 has been updated",
+  "html":      "<p>Hi! We updated your ticket.</p>",
+  "recipient": "customer@example.com",
+  "alias":     "support"               // sends from support@acme.com
+}`} />
+
+      <H3>Alias management endpoints</H3>
+      <RouteTable rows={[
+        { method: 'GET',    path: '/v1/apps/:id/aliases',              desc: 'List all aliases for an app. Token is never returned.' },
+        { method: 'POST',   path: '/v1/apps/:id/aliases',              desc: 'Create an alias and send verification email to from_email.' },
+        { method: 'DELETE', path: '/v1/apps/:id/aliases/:name',        desc: 'Delete an alias.' },
+        { method: 'POST',   path: '/v1/apps/:id/aliases/:name/resend', desc: 'Resend the verification email (refreshes the 24 h token).' },
+        { method: 'GET',    path: '/v1/verify-alias?token=',           desc: 'Public — clicked from the verification email; redirects to App Settings on success.' },
+      ]} />
+
+      <H3>Alias in send logs</H3>
+      <Para>
+        Every log entry records which alias was used. When querying logs, look for the{' '}
+        <InlineCode>alias_name</InlineCode> field — <InlineCode>null</InlineCode> means the default sender was used.
+      </Para>
+      <CodeBlock label="GET /v1/logs — response excerpt" code={`{
+  "_id":           "log-uuid",
+  "template_slug": "invoice-ready",
+  "recipient":     "customer@example.com",
+  "alias_name":    "billing",    // null when default sender was used
+  "status":        "success",
+  "sent_at":       "2026-07-08T10:30:00.000Z"
+}`} />
+
+      <InfoBox color="amber">
+        Whether an alias address actually works depends on your SMTP provider. Providers like SendGrid, Mailgun,
+        Postmark, and AWS SES require the sender address or domain to be verified in their dashboard before they
+        will deliver mail from it. The alias verification in MailService proves you control the inbox — SMTP-level
+        sender authorisation is configured separately in your provider.
       </InfoBox>
     </DocSection>
   );
